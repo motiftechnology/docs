@@ -1,97 +1,88 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Welcome to ChatAfrika"
+description: "Complete documentation for the ChatAfrika platform - Multi-tenant chat, messaging, and customer support platform"
 ---
 
-## Setting up
+## What is ChatAfrika?
 
-Get your documentation site up and running in minutes.
+ChatAfrika is a comprehensive multi-tenant chat and customer support platform built with modern technologies. It provides real-time messaging, AI-powered bots, webhooks, and a complete SDK for integration.
 
 <Card
-  title="Start here"
+  title="Quick Start"
   icon="rocket"
   href="/quickstart"
   horizontal
 >
-  Follow our three step quickstart guide.
+  Get started with ChatAfrika in minutes
 </Card>
 
-## Make it yours
+## Platform Architecture
 
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
-
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
+ChatAfrika consists of multiple services working together:
 
 <Columns cols={2}>
   <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
+    title="Backend API"
+    icon="server"
+    href="/guides/backend/overview"
   >
-    Use MDX to style your docs pages.
+    NestJS-based REST API for managing tenants, conversations, messages, and more
   </Card>
   <Card
-    title="Code samples"
+    title="Realtime Service"
+    icon="bolt"
+    href="/guides/realtime/overview"
+  >
+    Go-based WebSocket service for real-time messaging and presence
+  </Card>
+  <Card
+    title="Frontend Dashboard"
+    icon="window"
+    href="/guides/frontend/overview"
+  >
+    React-based admin dashboard for managing your ChatAfrika instance
+  </Card>
+  <Card
+    title="JavaScript SDK"
     icon="code"
-    href="/essentials/code"
+    href="/guides/sdk/overview"
   >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+    Headless SDK for integrating ChatAfrika into your applications
   </Card>
 </Columns>
 
-## Need inspiration?
+## Key Features
+
+- **Multi-tenant Architecture**: Isolated tenants with their own data and configuration
+- **Real-time Messaging**: WebSocket-based instant messaging with read receipts
+- **AI Bot Integration**: OpenAI-powered conversational bots with handover to agents
+- **Support Routing**: Intelligent conversation routing to departments and agents
+- **Webhooks**: Event-driven webhooks for external integrations
+- **Presence & Typing Indicators**: Real-time user presence and typing status
+- **Analytics**: Bot analytics, feedback collection, and metrics
+
+## Get Started
 
 <Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
+  title="Installation Guide"
+  icon="download"
+  href="/quickstart"
 >
-  Browse our showcase of exceptional documentation sites.
+  Set up your ChatAfrika instance
+</Card>
+
+<Card
+  title="API Reference"
+  icon="terminal"
+  href="/api-reference/introduction"
+>
+  Explore the REST API endpoints
+</Card>
+
+<Card
+  title="SDK Documentation"
+  icon="book"
+  href="/guides/sdk/overview"
+>
+  Integrate ChatAfrika into your app
 </Card>
