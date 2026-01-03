@@ -1,0 +1,364 @@
+---
+title: "Architecture Overview"
+description: "Understanding ChaterAfrika's system architecture and how services interact"
+---
+
+## System Overview
+
+ChaterAfrika is a multi-tenant chat and customer support platform built with a microservices architecture. The platform consists of four main services that work together to provide real-time messaging, AI-powered bots, and comprehensive customer support features.
+
+<CardGroup cols={2}>
+  <Card title="Backend API" icon="server">
+    NestJS REST API for business logic and data persistence
+  </Card>
+  <Card title="Realtime Service" icon="bolt">
+    Go WebSocket service for real-time messaging
+  </Card>
+  <Card title="Frontend Dashboard" icon="window">
+    React admin dashboard for managing the platform
+  </Card>
+  <Card title="JavaScript SDK" icon="code">
+    Client SDK for application integration
+  </Card>
+</CardGroup>
+
+## Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Client Applications                      │
+│                    (Web, Mobile, Desktop Apps)                    │
+└───────────────────────┬─────────────────────────────────────────┘
+                        │
+                        │ HTTP/REST
+                        │ WebSocket
+                        │
+        ┌───────────────┴───────────────┐
+        │                               │
+        ▼                               ▼
+┌───────────────┐              ┌───────────────┐
+│  Backend API  │              │ Realtime      │
+│  (NestJS)     │              │ Service (Go)  │
+│  Port: 3000   │              │ Port: 8080   │
+└───────┬───────┘              └───────┬───────┘
+        │                               │
+        │                               │ Redis PubSub
+        │                               │ Redis Streams
+        │                               │
+        └───────────────┬───────────────┘
+                        │
+                        ▼
+              ┌─────────────────┐
+              │     Redis        │
+              │  (Pub/Sub &      │
+              │   Streams)      │
+              └────────┬──────────┘
+                       │
+                       │ Persistence Events
+                       │
+                       ▼
+              ┌─────────────────┐
+              │   PostgreSQL    │
+              │   (Database)    │
+              └─────────────────┘
+```
+
+## Core Services
+
+### 1. Backend API (NestJS)
+
+The Backend API is the central service that handles all business logic, data persistence, and API requests.
+
+**Responsibilities:**
+- User authentication and authorization
+- Tenant management
+- Conversation and message persistence
+- AI bot inference and configuration
+- Webhook management and delivery
+- Support routing and assignment
+- Analytics and reporting
+
+**Technology Stack:**
+- **Framework:** NestJS (Node.js)
+- **Database:** PostgreSQL with TypeORM
+- **Authentication:** JWT (Access & Refresh tokens)
+- **Caching:** Redis (optional)
+
+**Key Modules:**
+- `AuthModule` - Authentication and user management
+- `TenantModule` - Multi-tenant isolation
+- `ConversationModule` - Conversation management
+- `MessageModule` - Message persistence
+- `BotModule` - AI bot integration
+- `WebhookModule` - Webhook delivery
+- `SupportModule` - Support routing
+
+<Note>
+The Backend API is the **source of truth** for all business logic and data persistence.
+</Note>
+
+### 2. Realtime Service (Go)
+
+The Realtime Service handles all WebSocket connections and real-time message delivery.
+
+**Responsibilities:**
+- WebSocket connection management
+- Real-time message fanout
+- Presence and typing indicators
+- Delivery and read receipts
+- Room (conversation) management
+- WebRTC signaling
+
+**Technology Stack:**
+- **Language:** Go 1.21+
+- **WebSocket:** Gorilla WebSocket
+- **Messaging:** Redis Pub/Sub and Streams
+- **Authentication:** JWT validation via JWKS
+
+**Key Principles:**
+- ✅ **Stateless** - Horizontally scalable
+- ✅ **Event-driven** - Publishes events, doesn't persist
+- ✅ **Fail-open** - Attempts delivery, Node.js reconciles
+- ❌ **Never writes to PostgreSQL** - All persistence in Node.js
+- ❌ **No business logic** - Only protocol validation
+
+<Warning>
+The Realtime Service **never** writes to the database. It only publishes events that the Backend API consumes and persists.
+</Warning>
+
+### 3. Frontend Dashboard (React)
+
+The admin dashboard for managing ChaterAfrika instances.
+
+**Responsibilities:**
+- User interface for platform management
+- Tenant configuration
+- Bot configuration
+- Support inbox management
+- Analytics visualization
+
+**Technology Stack:**
+- **Framework:** React with Vite
+- **Styling:** Tailwind CSS
+- **State Management:** React Context
+- **HTTP Client:** Axios
+
+### 4. JavaScript SDK
+
+Headless SDK for integrating ChaterAfrika into applications.
+
+**Responsibilities:**
+- Client-side API integration
+- WebSocket connection management
+- Message sending and receiving
+- Presence management
+- Typing indicators
+
+**Technology Stack:**
+- **Language:** TypeScript
+- **Build:** tsup
+- **WebSocket:** Native WebSocket API
+
+## Data Flow
+
+### Message Sending Flow
+
+```
+1. Client (SDK) → Backend API
+   POST /api/v1/messages
+   └─ Validates permissions
+   └─ Persists message to PostgreSQL
+   └─ Publishes event to Redis Stream
+
+2. Backend API → Redis Stream
+   └─ Message event published
+
+3. Realtime Service → Redis Stream
+   └─ Consumes message event
+   └─ Routes to connected clients
+   └─ Delivers via WebSocket
+
+4. Realtime Service → Clients
+   └─ WebSocket message delivery
+   └─ Delivery receipts
+```
+
+### Message Receiving Flow
+
+```
+1. Client (SDK) → Realtime Service
+   WebSocket connection
+   └─ Authenticates with JWT
+   └─ Joins conversation room
+
+2. Realtime Service → Client
+   └─ Receives message via WebSocket
+   └─ Emits to SDK event handlers
+
+3. Client → Backend API
+   POST /api/v1/receipts
+   └─ Marks message as read/delivered
+   └─ Persists receipt to PostgreSQL
+```
+
+## Multi-Tenancy
+
+ChaterAfrika is built with **tenant isolation** at its core. Each tenant has:
+
+- **Isolated data** - All data is scoped by tenant
+- **Separate configuration** - Apps, bots, webhooks per tenant
+- **Role-based access** - OWNER, ADMIN, AGENT, MEMBER roles
+- **Department routing** - Conversations routed to departments
+
+### Tenant Structure
+
+```
+Tenant
+├── Users (OWNER, ADMIN, AGENT, MEMBER)
+├── Apps (PROD, DEV environments)
+├── Conversations
+│   ├── DIRECT
+│   ├── GROUP
+│   └── SUPPORT
+├── Departments
+│   └── Agents (assigned to departments)
+└── Configuration
+    ├── Bot Config
+    ├── Webhooks
+    └── FAQs
+```
+
+## Authentication & Authorization
+
+### Token Types
+
+1. **Access Token** - Short-lived (15min), for API requests
+2. **Refresh Token** - Long-lived, for token renewal
+3. **SDK Token** - Short-lived (15min), for WebSocket connections
+
+### Authentication Flow
+
+```
+1. User Registration/Login
+   └─ Backend API validates credentials
+   └─ Returns access + refresh tokens
+
+2. API Requests
+   └─ Client includes access token in Authorization header
+   └─ Backend validates token and extracts tenant/user info
+
+3. WebSocket Connection
+   └─ Client connects with SDK token
+   └─ Realtime Service validates JWT via JWKS
+   └─ Extracts tenant/user context
+```
+
+## Scalability
+
+### Horizontal Scaling
+
+**Backend API:**
+- Stateless design allows multiple instances
+- Shared PostgreSQL database
+- Optional Redis for caching
+
+**Realtime Service:**
+- Stateless, horizontally scalable
+- Redis Pub/Sub for inter-node communication
+- Load balancer distributes WebSocket connections
+
+### Redis Usage
+
+- **Pub/Sub** - Inter-node message broadcasting
+- **Streams** - Event persistence and replay
+- **Keys** - Session and room state (optional)
+
+## Security
+
+### Data Isolation
+- Tenant-scoped queries prevent data leakage
+- JWT tokens include tenant context
+- Database-level constraints enforce isolation
+
+### Authentication
+- JWT-based authentication
+- JWKS for token validation
+- Internal service authentication via shared secrets
+
+### Network Security
+- HTTPS/WSS for all connections
+- CORS configuration
+- Rate limiting on API endpoints
+
+## Deployment Architecture
+
+### Recommended Setup
+
+```
+┌─────────────────────────────────────────┐
+│         Load Balancer (Nginx)            │
+└───────────────┬─────────────────────────┘
+                │
+        ┌───────┴───────┐
+        │               │
+        ▼               ▼
+┌───────────┐   ┌───────────┐
+│ Backend   │   │ Backend   │
+│ API #1    │   │ API #2    │
+└─────┬─────┘   └─────┬─────┘
+      │               │
+      └───────┬───────┘
+              │
+              ▼
+      ┌───────────────┐
+      │   PostgreSQL  │
+      └───────────────┘
+
+┌─────────────────────────────────────────┐
+│      WebSocket Load Balancer            │
+└───────────────┬─────────────────────────┘
+                │
+        ┌───────┴───────┐
+        │               │
+        ▼               ▼
+┌───────────┐   ┌───────────┐
+│ Realtime  │   │ Realtime  │
+│ Service #1│   │ Service #2│
+└─────┬─────┘   └─────┬─────┘
+      │               │
+      └───────┬───────┘
+              │
+              ▼
+      ┌───────────────┐
+      │     Redis     │
+      └───────────────┘
+```
+
+## Technology Stack Summary
+
+| Service | Technology | Purpose |
+|---------|-----------|---------|
+| Backend API | NestJS, TypeORM, PostgreSQL | Business logic & persistence |
+| Realtime Service | Go, Gorilla WebSocket, Redis | Real-time messaging |
+| Frontend Dashboard | React, Vite, Tailwind CSS | Admin interface |
+| JavaScript SDK | TypeScript, tsup | Client integration |
+| Database | PostgreSQL | Data persistence |
+| Cache/Messaging | Redis | Pub/Sub & event streaming |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Backend API" icon="server" href="/guides/backend/overview">
+    Learn about the Backend API architecture
+  </Card>
+  <Card title="Realtime Service" icon="bolt" href="/guides/realtime/overview">
+    Understand WebSocket and real-time features
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get started with installation
+  </Card>
+  <Card title="API Reference" icon="terminal" href="/api-reference/introduction">
+    Explore API endpoints
+  </Card>
+</CardGroup>
+

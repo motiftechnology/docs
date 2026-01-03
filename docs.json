@@ -18,6 +18,7 @@
             "pages": [
               "index",
               "quickstart",
+              "guides/architecture",
               "development"
             ]
           },
