@@ -10,7 +10,7 @@
 
 ### 1. Update Navigation Structure (`docs.json`)
 
-Reorganize the navigation to match ChatAfrika's structure:
+Reorganize the navigation to match ChaterAfrika's structure:
 
 ```json
 {
@@ -178,7 +178,7 @@ Create example files showing:
 ## 📁 Recommended Folder Structure
 
 ```
-chatAfrika-docs/
+chaterAfrika-docs/
 ├── docs.json
 ├── index.mdx
 ├── quickstart.mdx
@@ -223,7 +223,7 @@ chatAfrika-docs/
 1. **Local Development**
    ```bash
    npm i -g mint
-   cd chatAfrika-docs
+   cd chaterAfrika-docs
    mint dev
    ```
    View at `http://localhost:3000`

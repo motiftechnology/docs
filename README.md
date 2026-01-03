@@ -1,6 +1,6 @@
-# ChatAfrika Documentation
+# ChaterAfrika Documentation
 
-Welcome to the ChatAfrika documentation repository.
+Welcome to the ChaterAfrika documentation repository.
 
 Use the starter kit to get your docs deployed and ready to customize.
 
