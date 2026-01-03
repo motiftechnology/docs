@@ -1,4 +1,6 @@
-# Mintlify Starter Kit
+# ChatAfrika Documentation
+
+Welcome to the ChatAfrika documentation repository.
 
 Use the starter kit to get your docs deployed and ready to customize.
 
