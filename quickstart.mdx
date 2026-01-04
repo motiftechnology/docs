@@ -1,204 +1,38 @@
 ---
 title: "Quick Start"
-description: "Get ChaterAfrika up and running in minutes"
+description: "Get started with ChaterAfrika in minutes"
 ---
 
 ## Overview
 
-ChaterAfrika consists of multiple services that work together. This guide will help you set up the complete platform.
+ChaterAfrika is a multi-tenant chat and customer support platform that provides real-time messaging, AI-powered bots, and comprehensive support features. This guide will help you integrate ChaterAfrika into your application.
 
 <CardGroup cols={2}>
-  <Card title="Backend API" icon="server" href="#backend-api">
-    NestJS REST API
-  </Card>
-  <Card title="Realtime Service" icon="bolt" href="#realtime-service">
-    Go WebSocket Service
-  </Card>
-  <Card title="Frontend Dashboard" icon="window" href="#frontend-dashboard">
-    React Admin Dashboard
-  </Card>
   <Card title="JavaScript SDK" icon="code" href="#javascript-sdk">
-    Client SDK
+    Integrate ChaterAfrika into your app
+  </Card>
+  <Card title="API Reference" icon="terminal" href="/api-reference/introduction">
+    Explore REST API endpoints
+  </Card>
+  <Card title="Authentication" icon="key" href="/guides/backend/authentication">
+    Learn about authentication
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/guides/architecture">
+    Understand the platform
   </Card>
 </CardGroup>
 
 ## Prerequisites
 
-Before you begin, ensure you have:
+Before you begin, you'll need:
 
-- **Node.js** >= 20
-- **Go** >= 1.21
-- **PostgreSQL** database
-- **Redis** (optional, for multi-node deployments)
-- **Git**
-
-## Backend API
-
-The NestJS backend provides the REST API for managing tenants, conversations, messages, and more.
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/motiftechnology/chatAfika.git
-cd chatAfrika
-
-# Install dependencies
-npm install
-```
-
-### Environment Setup
-
-Create a `.env` file in the root directory:
-
-```env
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=your_password
-DB_NAME=chaterafrika
-
-# JWT Secrets
-ACCESS_SECRET=your_access_secret
-REFRESH_SECRET=your_refresh_secret
-SDK_TOKEN_EXPIRY=15m
-
-# App Configuration
-APP_NAME=ChaterAfrika
-APP_PORT=3000
-APP_ENV=development
-API_URL=http://localhost:3000
-
-# Redis (optional)
-REDIS_HOST=localhost
-REDIS_PORT=6379
-```
-
-### Database Setup
-
-```bash
-# Run migrations
-npm run migration:run
-
-# Run seeders (optional)
-yarn seed:run
-```
-
-### Start the Server
-
-```bash
-# Development mode
-npm run start:dev
-
-# Production mode
-npm run start:prod
-```
-
-The API will be available at `http://localhost:3000`
-
-<Note>
-Check the [Backend API documentation](/guides/backend/overview) for detailed information.
-</Note>
-
-## Realtime Service
-
-The Go-based WebSocket service handles real-time messaging, presence, and typing indicators.
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/motiftechnology/chatAfirka-realtime.git
-cd chatAfrika-realtime
-
-# Install dependencies
-go mod download
-```
-
-### Environment Setup
-
-Create a `.env` file:
-
-```env
-# Server
-SERVER_PORT=8080
-SERVER_HOST=localhost
-
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-
-# JWT
-JWT_SECRET=your_jwt_secret
-JWT_ISSUER=chaterafrika
-JWT_AUDIENCE=chaterafrika-sdk
-
-# Environment
-ENV=development
-```
-
-### Start the Service
-
-```bash
-# Development mode
-go run cmd/server/main.go
-
-# Or build and run
-make build
-./server
-```
-
-The WebSocket service will be available at `ws://localhost:8080/ws`
-
-<Note>
-Check the [Realtime Service documentation](/guides/realtime/overview) for detailed information.
-</Note>
-
-## Frontend Dashboard
-
-The React-based admin dashboard for managing your ChaterAfrika instance.
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/motiftechnology/enterprise-dashboard-frontend.git
-cd enterprise-dashboard-frontend
-
-# Install dependencies
-npm install
-```
-
-### Environment Setup
-
-Create a `.env` file:
-
-```env
-VITE_API_URL=http://localhost:3000
-VITE_WS_URL=ws://localhost:8080
-```
-
-### Start the Dashboard
-
-```bash
-# Development mode
-npm run dev
-
-# Build for production
-npm run build
-```
-
-The dashboard will be available at `http://localhost:5173`
-
-<Note>
-Check the [Frontend Dashboard documentation](/guides/frontend/overview) for detailed information.
-</Note>
+- A ChaterAfrika account (contact [support@chaterafrika.com](mailto:support@chaterafrika.com) for access)
+- Your API credentials (API URL and SDK token)
+- A modern web browser or Node.js environment
 
 ## JavaScript SDK
 
-The headless SDK for integrating ChaterAfrika into your applications.
+The easiest way to integrate ChaterAfrika into your application is using our JavaScript SDK.
 
 ### Installation
 
@@ -206,103 +40,229 @@ The headless SDK for integrating ChaterAfrika into your applications.
 npm install @chatafrika/sdk
 ```
 
-### Basic Usage
+### Basic Setup
 
 ```typescript
 import { ChatAfrika } from '@chatafrika/sdk';
 
-// Initialize the SDK
+// Initialize the SDK with your credentials
 const client = new ChatAfrika({
-  apiUrl: 'http://localhost:3000',
-  wsUrl: 'ws://localhost:8080',
-  sdkToken: 'your_sdk_token'
+  apiUrl: 'https://api.chaterafrika.com', // Your API endpoint
+  wsUrl: 'wss://realtime.chaterafrika.com', // Your WebSocket endpoint
+  sdkToken: 'your_sdk_token' // Get this from your dashboard
 });
 
 // Connect to realtime
 await client.connect();
+```
 
-// Join a conversation
-await client.conversations.join('conversation-id');
+### Create a Conversation
 
+```typescript
+// Create a new conversation
+const conversation = await client.conversations.create({
+  type: 'DIRECT',
+  members: ['user-id-1', 'user-id-2']
+});
+
+console.log('Conversation created:', conversation.id);
+```
+
+### Send a Message
+
+```typescript
 // Send a message
-await client.messages.send({
-  conversationId: 'conversation-id',
+const message = await client.messages.send({
+  conversationId: conversation.id,
   content: 'Hello, world!'
 });
 
-// Listen for messages
+console.log('Message sent:', message.id);
+```
+
+### Receive Messages
+
+```typescript
+// Join a conversation to receive messages
+await client.conversations.join(conversation.id);
+
+// Listen for incoming messages
 client.messages.on('message', (message) => {
-  console.log('New message:', message);
+  console.log('New message received:', message);
+  // Update your UI here
 });
 ```
 
-<Note>
-Check the [SDK documentation](/guides/sdk/overview) for detailed information and examples.
-</Note>
+### Presence and Typing Indicators
 
-## Verify Installation
+```typescript
+// Update presence status
+await client.presence.update('online');
 
-### Test Backend API
+// Send typing indicator
+await client.typing.start(conversation.id);
+
+// Stop typing indicator
+await client.typing.stop(conversation.id);
+
+// Listen for presence updates
+client.presence.on('update', (update) => {
+  console.log('User presence changed:', update);
+});
+```
+
+### Complete Example
+
+```typescript
+import { ChatAfrika } from '@chatafrika/sdk';
+
+async function initializeChat() {
+  // Initialize SDK
+  const client = new ChatAfrika({
+    apiUrl: 'https://api.chaterafrika.com',
+    wsUrl: 'wss://realtime.chaterafrika.com',
+    sdkToken: 'your_sdk_token'
+  });
+
+  // Connect to realtime
+  await client.connect();
+  console.log('Connected to ChaterAfrika');
+
+  // Create or get conversation
+  const conversation = await client.conversations.create({
+    type: 'DIRECT',
+    members: ['user-id-1', 'user-id-2']
+  });
+
+  // Join conversation
+  await client.conversations.join(conversation.id);
+
+  // Listen for messages
+  client.messages.on('message', (message) => {
+    console.log('Received:', message.content);
+    // Display message in your UI
+  });
+
+  // Send a message
+  await client.messages.send({
+    conversationId: conversation.id,
+    content: 'Hello from ChaterAfrika!'
+  });
+
+  return client;
+}
+
+// Initialize
+initializeChat().catch(console.error);
+```
+
+## REST API
+
+You can also interact with ChaterAfrika directly via REST API.
+
+### Authentication
+
+First, authenticate to get your access token:
 
 ```bash
-# Health check
-curl http://localhost:3000/health
-
-# Register a new user
-curl -X POST http://localhost:3000/api/v1/auth/register \
+curl -X POST https://api.chaterafrika.com/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "test@example.com",
-    "password": "SecurePassword123!",
-    "company_name": "Test Company"
+    "email": "your-email@example.com",
+    "password": "your-password"
   }'
 ```
 
-### Test Realtime Service
+Response:
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": { ... }
+}
+```
+
+### Make API Requests
+
+Use the access token in subsequent requests:
 
 ```bash
-# Using wscat
-npm install -g wscat
+# Get conversations
+curl https://api.chaterafrika.com/api/v1/conversations \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 
-wscat -c "ws://localhost:8080/ws" \
-  -H "Authorization: Bearer YOUR_SDK_TOKEN"
+# Send a message
+curl -X POST https://api.chaterafrika.com/api/v1/messages \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conversation_id": "conversation-uuid",
+    "content": "Hello, world!"
+  }'
+```
+
+## WebSocket Connection
+
+For real-time features, connect to the WebSocket service:
+
+```typescript
+// Using the SDK (recommended)
+await client.connect();
+
+// Or manually
+const ws = new WebSocket('wss://realtime.chaterafrika.com/ws', {
+  headers: {
+    'Authorization': `Bearer ${sdkToken}`
+  }
+});
+
+ws.onopen = () => {
+  // Join a conversation
+  ws.send(JSON.stringify({
+    type: 'join',
+    conversation_id: 'conversation-id'
+  }));
+};
+
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  console.log('Received:', message);
+};
 ```
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Authentication" icon="key" href="/guides/backend/authentication">
-    Learn about authentication and token management
+  <Card title="SDK Documentation" icon="code" href="/guides/sdk/overview">
+    Complete SDK reference and examples
   </Card>
   <Card title="API Reference" icon="terminal" href="/api-reference/introduction">
-    Explore all available API endpoints
+    Explore all API endpoints
   </Card>
-  <Card title="SDK Guide" icon="code" href="/guides/sdk/overview">
-    Integrate ChaterAfrika into your app
+  <Card title="Authentication" icon="key" href="/guides/backend/authentication">
+    Learn about authentication flows
   </Card>
-  <Card title="Architecture" icon="diagram-project" href="/guides/architecture">
-    Understand the system architecture
+  <Card title="Webhooks" icon="webhook" href="/guides/webhooks">
+    Set up webhooks for events
   </Card>
 </CardGroup>
 
-## Troubleshooting
-
-### Common Issues
+## Getting Help
 
 <AccordionGroup>
-  <Accordion title="Database connection errors">
-    Ensure PostgreSQL is running and the connection details in `.env` are correct.
+  <Accordion title="Where do I get my API credentials?">
+    Contact [support@chaterafrika.com](mailto:support@chaterafrika.com) to get your API URL, WebSocket URL, and SDK token.
   </Accordion>
-  <Accordion title="WebSocket connection fails">
-    Verify the realtime service is running and the WebSocket URL is correct.
+  <Accordion title="How do I handle errors?">
+    The SDK provides error handling. Check the [SDK documentation](/guides/sdk/overview) for error handling patterns.
   </Accordion>
-  <Accordion title="Port already in use">
-    Change the port in your `.env` file or stop the service using that port.
+  <Accordion title="Can I use ChaterAfrika in a mobile app?">
+    Yes! The SDK works in React Native and other JavaScript environments. Check the [SDK documentation](/guides/sdk/overview) for platform-specific guides.
   </Accordion>
 </AccordionGroup>
 
-## Need Help?
+## Support
 
-- Check our [documentation](/)
-- Join our [GitHub Discussions](https://github.com/motiftechnology)
-- Contact [support@chaterafrika.com](mailto:support@chaterafrika.com)
+- 📧 Email: [support@chaterafrika.com](mailto:support@chaterafrika.com)
+- 📚 Documentation: Browse our guides and API reference
+- 💬 Questions: Contact our support team
