@@ -1,0 +1,280 @@
+---
+title: "Authentication"
+description: "Complete guide to authentication in ChaterAfrika"
+---
+
+## Overview
+
+ChaterAfrika uses JWT (JSON Web Tokens) for authentication. The platform supports multiple authentication flows depending on the use case.
+
+## Authentication Types
+
+### 1. User Authentication (Dashboard/Admin)
+
+For dashboard users (OWNER, ADMIN, AGENT, MEMBER roles):
+
+- **Access Token**: Short-lived (15 minutes), used for API requests
+- **Refresh Token**: Long-lived, used to obtain new access tokens
+- **Purpose**: Access to admin dashboard and management APIs
+
+### 2. SDK Authentication (Client Applications)
+
+For SDK users (customers using your application):
+
+- **SDK Token**: Short-lived (15 minutes), used for WebSocket connections
+- **Purpose**: Real-time messaging and customer interactions
+
+## User Registration
+
+Registration automatically creates both a user and a tenant.
+
+<ParamField body="email" type="string" required>
+  User email address (must be unique)
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User password (must meet security requirements)
+</ParamField>
+
+<ParamField body="company_name" type="string" required>
+  Company name (used to create tenant)
+</ParamField>
+
+**Endpoint:** `POST /api/v1/auth/register`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "uuid",
+      "email": "user@example.com",
+      "role": "OWNER"
+    },
+    "tenant": {
+      "id": "uuid",
+      "name": "Company Name",
+      "slug": "company-name"
+    },
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+<Note>
+The registered user automatically becomes the OWNER of the created tenant.
+</Note>
+
+## User Login
+
+<ParamField body="email" type="string" required>
+  User email address
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User password
+</ParamField>
+
+**Endpoint:** `POST /api/v1/auth/login`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "uuid",
+      "email": "user@example.com",
+      "role": "OWNER",
+      "tenant_id": "uuid"
+    },
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+## Token Refresh
+
+When the access token expires, use the refresh token to obtain a new access token.
+
+<ParamField body="refresh_token" type="string" required>
+  The refresh token from login/register
+</ParamField>
+
+**Endpoint:** `POST /api/v1/auth/refresh`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+## SDK Token Exchange
+
+For client applications, exchange SDK credentials for a JWT token to connect to WebSocket.
+
+<ParamField body="app_id" type="string" required>
+  Your app ID (from dashboard)
+</ParamField>
+
+<ParamField body="app_secret" type="string" required>
+  Your app secret (from dashboard)
+</ParamField>
+
+<ParamField body="user_id" type="string" required>
+  Customer/user identifier in your system
+</ParamField>
+
+**Endpoint:** `POST /api/v1/auth/sdk-token`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expires_in": 900
+  }
+}
+```
+
+<Warning>
+SDK tokens are short-lived (15 minutes). Implement token refresh in your application.
+</Warning>
+
+## Using Access Tokens
+
+Include the access token in the `Authorization` header for all API requests:
+
+```bash
+curl https://api.chaterafrika.com/api/v1/conversations \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+## Using SDK Tokens
+
+SDK tokens are used for WebSocket connections:
+
+```typescript
+// Using the SDK
+const client = new ChatAfrika({
+  apiUrl: 'https://api.chaterafrika.com',
+  wsUrl: 'wss://realtime.chaterafrika.com',
+  sdkToken: 'YOUR_SDK_TOKEN'
+});
+
+await client.connect();
+```
+
+Or manually:
+
+```javascript
+const ws = new WebSocket('wss://realtime.chaterafrika.com/ws', {
+  headers: {
+    'Authorization': `Bearer ${sdkToken}`
+  }
+});
+```
+
+## Token Structure
+
+### Access Token Payload
+
+```json
+{
+  "sub": "user-id",
+  "email": "user@example.com",
+  "tenant_id": "tenant-id",
+  "role": "OWNER",
+  "iat": 1234567890,
+  "exp": 1234568790
+}
+```
+
+### SDK Token Payload
+
+```json
+{
+  "sub": "user-id",
+  "tenant_id": "tenant-id",
+  "app_id": "app-id",
+  "aud": "chaterafrika-sdk",
+  "iat": 1234567890,
+  "exp": 1234568790
+}
+```
+
+## Security Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Token Storage" icon="lock">
+    Store tokens securely. Never expose tokens in client-side code or logs.
+  </Card>
+  <Card title="Token Refresh" icon="refresh">
+    Implement automatic token refresh before expiration.
+  </Card>
+  <Card title="HTTPS Only" icon="shield">
+    Always use HTTPS/WSS in production.
+  </Card>
+  <Card title="Token Rotation" icon="key">
+    Rotate app secrets regularly for security.
+  </Card>
+</CardGroup>
+
+## Error Handling
+
+### Invalid Credentials
+
+```json
+{
+  "success": false,
+  "message": "Invalid email or password",
+  "statusCode": 401
+}
+```
+
+### Expired Token
+
+```json
+{
+  "success": false,
+  "message": "Token expired",
+  "statusCode": 401
+}
+```
+
+### Invalid Token
+
+```json
+{
+  "success": false,
+  "message": "Invalid token",
+  "statusCode": 401
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="terminal" href="/api-reference/auth/register">
+    View all authentication endpoints
+  </Card>
+  <Card title="SDK Guide" icon="code" href="/guides/sdk/authentication">
+    Learn SDK authentication
+  </Card>
+  <Card title="WebSocket Auth" icon="bolt" href="/websocket/authentication">
+    WebSocket authentication
+  </Card>
+  <Card title="Security" icon="shield" href="/guides/security">
+    Security best practices
+  </Card>
+</CardGroup>
+

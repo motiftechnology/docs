@@ -14,56 +14,230 @@
         "tab": "Guides",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
               "index",
               "quickstart",
               "guides/architecture",
-              "development"
+              "guides/authentication"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Features",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "guides/conversations",
+              "guides/messages",
+              "guides/realtime",
+              "guides/presence-typing",
+              "guides/receipts"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Support & Routing",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "guides/support-routing",
+              "guides/departments",
+              "guides/agents",
+              "guides/customers"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "AI Bot",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/bots/overview",
+              "guides/bots/configuration",
+              "guides/bots/analytics",
+              "guides/bots/faq"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "guides/webhooks",
+              "guides/sdk/overview",
+              "guides/sdk/authentication",
+              "guides/sdk/messaging",
+              "guides/sdk/realtime"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "guides/multi-tenancy",
+              "guides/security",
+              "guides/scalability",
+              "guides/troubleshooting"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Authentication",
             "pages": [
-              "api-reference/introduction"
+              "api-reference/auth/register",
+              "api-reference/auth/login",
+              "api-reference/auth/refresh",
+              "api-reference/auth/sdk-token"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Tenants",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api-reference/tenants/get",
+              "api-reference/tenants/update"
+            ]
+          },
+          {
+            "group": "Apps",
+            "pages": [
+              "api-reference/apps/create",
+              "api-reference/apps/list",
+              "api-reference/apps/get",
+              "api-reference/apps/update",
+              "api-reference/apps/delete"
+            ]
+          },
+          {
+            "group": "Conversations",
+            "pages": [
+              "api-reference/conversations/create",
+              "api-reference/conversations/list",
+              "api-reference/conversations/get",
+              "api-reference/conversations/add-member",
+              "api-reference/conversations/remove-member"
+            ]
+          },
+          {
+            "group": "Messages",
+            "pages": [
+              "api-reference/messages/list",
+              "api-reference/messages/get"
+            ]
+          },
+          {
+            "group": "Receipts",
+            "pages": [
+              "api-reference/receipts/list",
+              "api-reference/receipts/get"
+            ]
+          },
+          {
+            "group": "Departments",
+            "pages": [
+              "api-reference/departments/create",
+              "api-reference/departments/list",
+              "api-reference/departments/get",
+              "api-reference/departments/update",
+              "api-reference/departments/delete"
+            ]
+          },
+          {
+            "group": "Agents",
+            "pages": [
+              "api-reference/agents/create",
+              "api-reference/agents/list",
+              "api-reference/agents/get",
+              "api-reference/agents/update",
+              "api-reference/agents/availability"
+            ]
+          },
+          {
+            "group": "Support",
+            "pages": [
+              "api-reference/support/assign",
+              "api-reference/support/transfer",
+              "api-reference/support/inbox"
+            ]
+          },
+          {
+            "group": "Customers",
+            "pages": [
+              "api-reference/customers/list",
+              "api-reference/customers/get"
+            ]
+          },
+          {
+            "group": "Bots",
+            "pages": [
+              "api-reference/bots/config",
+              "api-reference/bots/handover"
+            ]
+          },
+          {
+            "group": "Bot Analytics",
+            "pages": [
+              "api-reference/bot-analytics/overview",
+              "api-reference/bot-analytics/events",
+              "api-reference/bot-analytics/feedback",
+              "api-reference/bot-analytics/submit-feedback"
+            ]
+          },
+          {
+            "group": "FAQs",
+            "pages": [
+              "api-reference/faqs/create",
+              "api-reference/faqs/list",
+              "api-reference/faqs/get",
+              "api-reference/faqs/update",
+              "api-reference/faqs/delete"
+            ]
+          },
+          {
+            "group": "Webhooks",
+            "pages": [
+              "api-reference/webhooks/create",
+              "api-reference/webhooks/list",
+              "api-reference/webhooks/get",
+              "api-reference/webhooks/update",
+              "api-reference/webhooks/delete",
+              "api-reference/webhooks/deliveries"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "WebSocket",
+        "groups": [
+          {
+            "group": "Protocol",
+            "pages": [
+              "websocket/overview",
+              "websocket/authentication",
+              "websocket/message-types",
+              "websocket/rooms"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "websocket/messaging",
+              "websocket/presence",
+              "websocket/typing",
+              "websocket/receipts",
+              "websocket/signaling"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "SDK",
+        "groups": [
+          {
+            "group": "JavaScript SDK",
+            "pages": [
+              "sdk/overview",
+              "sdk/installation",
+              "sdk/authentication",
+              "sdk/conversations",
+              "sdk/messaging",
+              "sdk/presence",
+              "sdk/typing",
+              "sdk/receipts",
+              "sdk/support",
+              "sdk/examples"
             ]
           }
         ]
@@ -71,11 +245,11 @@
     ],
     "global": {
       "anchors": [
-      {
-        "anchor": "GitHub",
-        "href": "https://github.com/motiftechnology",
-        "icon": "github"
-      }
+        {
+          "anchor": "GitHub",
+          "href": "https://github.com/motiftechnology",
+          "icon": "github"
+        }
       ]
     }
   },
@@ -98,15 +272,15 @@
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {

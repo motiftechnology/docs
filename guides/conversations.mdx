@@ -1,0 +1,240 @@
+---
+title: "Conversations"
+description: "Understanding and managing conversations in ChaterAfrika"
+---
+
+## Overview
+
+Conversations are the core unit of communication in ChaterAfrika. They support three types: DIRECT, GROUP, and SUPPORT conversations, each with specific use cases and behaviors.
+
+## Conversation Types
+
+### DIRECT Conversations
+
+One-on-one conversations between two users.
+
+**Characteristics:**
+- Exactly 2 participants
+- No title required
+- Automatically created or retrieved
+- Cannot have more than 2 members
+
+**Use Cases:**
+- Private messaging between users
+- Customer-to-agent direct communication
+- Peer-to-peer chat
+
+### GROUP Conversations
+
+Multi-user conversations for team collaboration.
+
+**Characteristics:**
+- 2-100 participants
+- Title required
+- Members can be added/removed
+- All members can send messages
+
+**Use Cases:**
+- Team channels
+- Group discussions
+- Project collaboration
+
+### SUPPORT Conversations
+
+Customer support conversations with routing capabilities.
+
+**Characteristics:**
+- Customer + Agent(s)
+- Can be routed to departments
+- Supports bot integration
+- Assignment tracking
+- Status management (open, closed, etc.)
+
+**Use Cases:**
+- Customer support tickets
+- Help desk conversations
+- Support routing and escalation
+
+## Creating Conversations
+
+### Create DIRECT Conversation
+
+```typescript
+const conversation = await fetch('https://api.chaterafrika.com/api/v1/conversations', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    type: 'direct',
+    member_ids: ['other-user-id']
+  })
+});
+```
+
+<Note>
+If a DIRECT conversation already exists between the two users, the API returns the existing conversation (409 Conflict).
+</Note>
+
+### Create GROUP Conversation
+
+```typescript
+const conversation = await fetch('https://api.chaterafrika.com/api/v1/conversations', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    type: 'group',
+    title: 'Engineering Team',
+    member_ids: ['user-id-1', 'user-id-2', 'user-id-3']
+  })
+});
+```
+
+### Create SUPPORT Conversation
+
+```typescript
+const conversation = await fetch('https://api.chaterafrika.com/api/v1/conversations', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    type: 'support',
+    title: 'Support Request',
+    member_ids: ['agent-id'],
+    customer_id: 'customer-id',
+    department_id: 'department-id' // Optional
+  })
+});
+```
+
+## Managing Conversations
+
+### List Conversations
+
+```typescript
+const conversations = await fetch('https://api.chaterafrika.com/api/v1/conversations', {
+  headers: {
+    'Authorization': `Bearer ${accessToken}`
+  }
+});
+```
+
+**Query Parameters:**
+- `type` - Filter by type (direct, group, support)
+- `limit` - Number of results (default: 50)
+- `cursor` - Pagination cursor
+
+### Get Conversation Details
+
+```typescript
+const conversation = await fetch(
+  `https://api.chaterafrika.com/api/v1/conversations/${conversationId}`,
+  {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`
+    }
+  }
+);
+```
+
+### Add Member to Conversation
+
+```typescript
+await fetch(
+  `https://api.chaterafrika.com/api/v1/conversations/${conversationId}/members`,
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      user_id: 'new-member-id'
+    })
+  }
+);
+```
+
+<Warning>
+Only OWNER and ADMIN can add members to GROUP conversations. DIRECT conversations cannot have members added.
+</Warning>
+
+### Remove Member from Conversation
+
+```typescript
+await fetch(
+  `https://api.chaterafrika.com/api/v1/conversations/${conversationId}/members/${userId}`,
+  {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`
+    }
+  }
+);
+```
+
+## Conversation Members
+
+Each conversation has members with roles:
+
+- **OWNER**: Creator of the conversation, full control
+- **ADMIN**: Can manage members (GROUP only)
+- **MEMBER**: Can send/receive messages
+- **AGENT**: Support agent (SUPPORT conversations)
+
+## Using the SDK
+
+```typescript
+import { ChatAfrika } from '@chatafrika/sdk';
+
+const client = new ChatAfrika({ /* config */ });
+
+// Create conversation
+const conversation = await client.conversations.create({
+  type: 'direct',
+  members: ['user-id']
+});
+
+// Join conversation (for real-time updates)
+await client.conversations.join(conversation.id);
+
+// Listen for messages
+client.messages.on('message', (message) => {
+  if (message.conversation_id === conversation.id) {
+    console.log('New message:', message);
+  }
+});
+```
+
+## Real-time Updates
+
+When you join a conversation via WebSocket, you'll receive:
+
+- New messages
+- Member additions/removals
+- Conversation updates
+- Presence changes
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Messages" icon="message" href="/guides/messages">
+    Learn about sending and receiving messages
+  </Card>
+  <Card title="API Reference" icon="terminal" href="/api-reference/conversations/create">
+    View all conversation endpoints
+  </Card>
+  <Card title="Support Routing" icon="route" href="/guides/support-routing">
+    Support conversation routing
+  </Card>
+  <Card title="Realtime" icon="bolt" href="/guides/realtime">
+    Real-time conversation features
+  </Card>
+</CardGroup>
+
