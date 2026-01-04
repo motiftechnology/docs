@@ -1,0 +1,290 @@
+---
+title: "Webhooks"
+description: "Setting up and managing webhooks in ChaterAfrika"
+---
+
+## Overview
+
+Webhooks allow you to receive real-time notifications about events in your ChaterAfrika instance. Configure webhook endpoints to receive HTTP POST requests when events occur.
+
+## How Webhooks Work
+
+```
+1. Event occurs in ChaterAfrika
+   ↓
+2. Webhook service publishes event
+   ↓
+3. HTTP POST to your webhook URL
+   ↓
+4. Your server processes the event
+```
+
+## Supported Events
+
+### Message Events
+
+- `message.created` - New message sent
+- `message.delivered` - Message delivered to recipient
+- `message.read` - Message read by recipient
+
+### Conversation Events
+
+- `conversation.created` - New conversation created
+- `conversation.member_added` - Member added to conversation
+- `conversation.member_removed` - Member removed from conversation
+
+### Support Events
+
+- `support.assigned` - Support conversation assigned to agent
+- `support.transferred` - Support conversation transferred
+- `support.closed` - Support conversation closed
+
+### Bot Events
+
+- `bot.reply_sent` - Bot sent a reply
+- `bot.handover` - Bot handed over to agent
+- `bot.escalated` - Bot escalated conversation
+
+## Creating a Webhook
+
+### Request
+
+<ParamField body="url" type="string" required>
+  Webhook endpoint URL (must be HTTPS)
+</ParamField>
+
+<ParamField body="events" type="string[]" required>
+  Array of event types to subscribe to
+</ParamField>
+
+<ParamField body="secret" type="string">
+  Secret for webhook signature verification (optional)
+</ParamField>
+
+<ParamField body="enabled" type="boolean">
+  Whether webhook is enabled (default: true)
+</ParamField>
+
+**Endpoint:** `POST /api/v1/apps/:appId/webhooks`
+
+**Example:**
+```bash
+curl -X POST https://api.chaterafrika.com/api/v1/apps/{appId}/webhooks \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://your-server.com/webhooks",
+    "events": ["message.created", "conversation.created"],
+    "secret": "your-webhook-secret"
+  }'
+```
+
+## Webhook Payload
+
+All webhook payloads follow this structure:
+
+```json
+{
+  "id": "webhook-delivery-id",
+  "event": "message.created",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "data": {
+    // Event-specific data
+  }
+}
+```
+
+### Message Created Event
+
+```json
+{
+  "id": "delivery-uuid",
+  "event": "message.created",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "data": {
+    "message": {
+      "id": "message-uuid",
+      "conversation_id": "conversation-uuid",
+      "sender_id": "user-uuid",
+      "sender_type": "sdk",
+      "content": "Hello, world!",
+      "message_type": "text",
+      "created_at": "2024-01-01T00:00:00Z"
+    },
+    "tenant_id": "tenant-uuid",
+    "app_id": "app-uuid"
+  }
+}
+```
+
+### Conversation Created Event
+
+```json
+{
+  "id": "delivery-uuid",
+  "event": "conversation.created",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "data": {
+    "conversation": {
+      "id": "conversation-uuid",
+      "type": "group",
+      "title": "Engineering Team",
+      "tenant_id": "tenant-uuid",
+      "created_at": "2024-01-01T00:00:00Z"
+    },
+    "members": [
+      {
+        "user_id": "user-uuid",
+        "role": "OWNER"
+      }
+    ]
+  }
+}
+```
+
+## Webhook Signing
+
+Webhooks can be signed with HMAC-SHA256 for verification:
+
+### Verify Signature
+
+```typescript
+import crypto from 'crypto';
+
+function verifyWebhookSignature(
+  payload: string,
+  signature: string,
+  secret: string
+): boolean {
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(payload)
+    .digest('hex');
+  
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(expectedSignature)
+  );
+}
+
+// In your webhook handler
+const signature = req.headers['x-chaterafrika-signature'];
+const isValid = verifyWebhookSignature(
+  JSON.stringify(req.body),
+  signature,
+  webhookSecret
+);
+```
+
+### Signature Header
+
+The signature is sent in the `X-ChaterAfrika-Signature` header:
+
+```
+X-ChaterAfrika-Signature: sha256=abc123...
+```
+
+## Webhook Delivery
+
+### Delivery Status
+
+- **pending** - Queued for delivery
+- **delivered** - Successfully delivered (2xx response)
+- **failed** - Delivery failed (non-2xx response or timeout)
+- **retrying** - Retrying after failure
+
+### Retry Logic
+
+- Initial retry: 1 minute
+- Exponential backoff: 2, 4, 8, 16, 32 minutes
+- Max retries: 5 attempts
+- After max retries: Marked as failed
+
+### Viewing Deliveries
+
+```bash
+curl https://api.chaterafrika.com/api/v1/apps/{appId}/webhooks/{webhookId}/deliveries \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="HTTPS Only" icon="lock">
+    Always use HTTPS for webhook URLs
+  </Card>
+  <Card title="Idempotency" icon="repeat">
+    Make webhook handlers idempotent
+  </Card>
+  <Card title="Quick Response" icon="bolt">
+    Respond quickly (within 5 seconds)
+  </Card>
+  <Card title="Signature Verification" icon="shield">
+    Always verify webhook signatures
+  </Card>
+</CardGroup>
+
+## Error Handling
+
+### Timeout
+
+If your server doesn't respond within 30 seconds, the delivery is marked as failed and will be retried.
+
+### Non-2xx Responses
+
+Any HTTP status code other than 2xx is considered a failure and will trigger retries.
+
+### Example Handler
+
+```typescript
+app.post('/webhooks', async (req, res) => {
+  // Verify signature
+  const signature = req.headers['x-chaterafrika-signature'];
+  if (!verifySignature(req.body, signature, secret)) {
+    return res.status(401).send('Invalid signature');
+  }
+
+  // Process event
+  const { event, data } = req.body;
+  
+  switch (event) {
+    case 'message.created':
+      await handleMessageCreated(data);
+      break;
+    case 'conversation.created':
+      await handleConversationCreated(data);
+      break;
+    // ... other events
+  }
+
+  // Respond quickly
+  res.status(200).send('OK');
+});
+```
+
+## Testing Webhooks
+
+Use tools like [ngrok](https://ngrok.com/) or [webhook.site](https://webhook.site/) to test webhooks locally:
+
+```bash
+# Start ngrok tunnel
+ngrok http 3000
+
+# Use ngrok URL in webhook configuration
+# https://abc123.ngrok.io/webhooks
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="terminal" href="/api-reference/webhooks/create">
+    View all webhook endpoints
+  </Card>
+  <Card title="Event Types" icon="list" href="/guides/webhooks/events">
+    Complete list of events
+  </Card>
+  <Card title="Security" icon="shield" href="/guides/security">
+    Webhook security best practices
+  </Card>
+</CardGroup>
+

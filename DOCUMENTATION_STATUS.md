@@ -6,6 +6,19 @@
 - [x] Architecture overview (`guides/architecture.mdx`)
 - [x] Quick Start guide (`quickstart.mdx`)
 - [x] Authentication guide (`guides/authentication.mdx`)
+- [x] Conversations guide (`guides/conversations.mdx`)
+- [x] Messages guide (`guides/messages.mdx`)
+- [x] Realtime guide (`guides/realtime.mdx`)
+- [x] Webhooks guide (`guides/webhooks.mdx`)
+- [x] Support Routing guide (`guides/support-routing.mdx`)
+- [x] Bot Overview (`guides/bots/overview.mdx`)
+- [x] SDK Overview (`sdk/overview.mdx`)
+- [x] SDK Installation (`sdk/installation.mdx`)
+- [x] WebSocket Overview (`websocket/overview.mdx`)
+- [x] API: Register (`api-reference/auth/register.mdx`)
+- [x] API: Login (`api-reference/auth/login.mdx`)
+- [x] API: SDK Token (`api-reference/auth/sdk-token.mdx`)
+- [x] API: Create Conversation (`api-reference/conversations/create.mdx`)
 - [x] Homepage (`index.mdx`)
 
 ## 🚧 In Progress
@@ -155,9 +168,9 @@
 ## 📊 Progress Summary
 
 - **Total Pages Needed**: ~80+
-- **Completed**: 5
-- **In Progress**: 0
-- **Remaining**: ~75
+- **Completed**: 18
+- **In Progress**: 3
+- **Remaining**: ~62
 
 ## 🎯 Priority Order
 

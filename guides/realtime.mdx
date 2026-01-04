@@ -1,0 +1,329 @@
+---
+title: "Realtime Features"
+description: "Real-time messaging, presence, and WebSocket features"
+---
+
+## Overview
+
+ChaterAfrika provides real-time features through WebSocket connections. The realtime service handles instant message delivery, presence tracking, typing indicators, and more.
+
+## WebSocket Connection
+
+### Connection Endpoint
+
+```
+wss://realtime.chaterafrika.com/ws
+```
+
+### Authentication
+
+Connect with SDK token in the `Authorization` header:
+
+```typescript
+const ws = new WebSocket('wss://realtime.chaterafrika.com/ws', {
+  headers: {
+    'Authorization': `Bearer ${sdkToken}`
+  }
+});
+```
+
+Or using the SDK:
+
+```typescript
+import { ChatAfrika } from '@chatafrika/sdk';
+
+const client = new ChatAfrika({
+  apiUrl: 'https://api.chaterafrika.com',
+  wsUrl: 'wss://realtime.chaterafrika.com',
+  sdkToken: 'your-sdk-token'
+});
+
+await client.connect();
+```
+
+## Connection Lifecycle
+
+### Connection States
+
+```typescript
+client.on('connection_state', (state) => {
+  switch (state) {
+    case 'connecting':
+      console.log('Connecting...');
+      break;
+    case 'connected':
+      console.log('Connected!');
+      break;
+    case 'disconnected':
+      console.log('Disconnected');
+      break;
+    case 'reconnecting':
+      console.log('Reconnecting...');
+      break;
+  }
+});
+```
+
+### Automatic Reconnection
+
+The SDK automatically handles reconnection with exponential backoff:
+
+- Initial reconnect: 1 second
+- Max delay: 30 seconds
+- Max retries: Unlimited
+
+## Joining Conversations
+
+To receive messages for a conversation, you must join it:
+
+```typescript
+// Using SDK
+await client.conversations.join(conversationId);
+
+// WebSocket protocol
+ws.send(JSON.stringify({
+  type: 'join',
+  conversation_id: conversationId
+}));
+```
+
+**Response:**
+```json
+{
+  "type": "joined",
+  "payload": {
+    "conversation_id": "conversation-uuid"
+  }
+}
+```
+
+## Sending Messages
+
+### Message Format
+
+```json
+{
+  "type": "message",
+  "conversation_id": "conversation-uuid",
+  "payload": {
+    "message_id": "message-uuid",
+    "content": "Hello, world!",
+    "message_type": "text"
+  }
+}
+```
+
+### Using SDK
+
+```typescript
+await client.messages.send({
+  conversationId: conversationId,
+  content: 'Hello, world!'
+});
+```
+
+## Receiving Messages
+
+Messages are broadcast to all connected clients in the conversation:
+
+```typescript
+// Using SDK
+client.messages.on('message', (message) => {
+  console.log('Received:', message.content);
+  console.log('From:', message.sender_id);
+  console.log('Conversation:', message.conversation_id);
+});
+
+// WebSocket protocol
+ws.on('message', (data) => {
+  const message = JSON.parse(data);
+  if (message.type === 'message') {
+    console.log('Received:', message.payload.content);
+  }
+});
+```
+
+## Presence
+
+Track user online/offline status:
+
+### Update Presence
+
+```typescript
+// Using SDK
+await client.presence.update('online');
+await client.presence.update('offline');
+await client.presence.update('away');
+```
+
+### Listen for Presence Updates
+
+```typescript
+client.presence.on('update', (update) => {
+  console.log('User presence changed:', update.user_id, update.status);
+});
+```
+
+### WebSocket Protocol
+
+```json
+{
+  "type": "presence",
+  "status": "online"
+}
+```
+
+## Typing Indicators
+
+Show when users are typing:
+
+### Start Typing
+
+```typescript
+// Using SDK
+await client.typing.start(conversationId);
+
+// WebSocket protocol
+ws.send(JSON.stringify({
+  type: 'typing_start',
+  conversation_id: conversationId
+}));
+```
+
+### Stop Typing
+
+```typescript
+// Using SDK
+await client.typing.stop(conversationId);
+
+// WebSocket protocol
+ws.send(JSON.stringify({
+  type: 'typing_stop',
+  conversation_id: conversationId
+}));
+```
+
+### Receive Typing Indicators
+
+```typescript
+client.typing.on('typing', (event) => {
+  console.log('User typing:', event.user_id);
+  console.log('Conversation:', event.conversation_id);
+});
+```
+
+<Note>
+Typing indicators automatically expire after 5 seconds if not explicitly stopped.
+</Note>
+
+## Read Receipts
+
+Track when messages are read:
+
+### Send Read Receipt
+
+```typescript
+// Using SDK
+await client.receipts.markRead(conversationId, messageId);
+
+// WebSocket protocol
+ws.send(JSON.stringify({
+  type: 'read',
+  conversation_id: conversationId,
+  message_id: messageId
+}));
+```
+
+### Receive Read Receipts
+
+```typescript
+client.receipts.on('receipt', (receipt) => {
+  console.log('Message read:', receipt.message_id);
+  console.log('By user:', receipt.user_id);
+});
+```
+
+## Message Types
+
+### Client → Server
+
+- `join` - Join a conversation room
+- `leave` - Leave a conversation room
+- `message` - Send a message
+- `read` - Mark message as read
+- `typing_start` - Start typing indicator
+- `typing_stop` - Stop typing indicator
+
+### Server → Client
+
+- `joined` - Successfully joined room
+- `left` - Successfully left room
+- `message` - New message received
+- `receipt` - Receipt update
+- `typing` - Typing indicator update
+- `presence` - Presence update
+- `error` - Error message
+
+## Error Handling
+
+### Connection Errors
+
+```typescript
+client.on('error', (error) => {
+  console.error('WebSocket error:', error);
+  // Handle error (reconnect, show to user, etc.)
+});
+```
+
+### Message Errors
+
+```json
+{
+  "type": "error",
+  "error": "conversation_id is required"
+}
+```
+
+## Multi-Node Architecture
+
+The realtime service is horizontally scalable:
+
+- Multiple nodes can run simultaneously
+- Redis Pub/Sub for inter-node communication
+- Messages broadcast across all nodes
+- Load balancer distributes connections
+
+## Performance Considerations
+
+<CardGroup cols={2}>
+  <Card title="Connection Pooling" icon="network-wired">
+    Reuse WebSocket connections when possible
+  </Card>
+  <Card title="Room Management" icon="door-open">
+    Leave rooms when not needed to reduce overhead
+  </Card>
+  <Card title="Message Batching" icon="layer-group">
+    Batch operations when possible
+  </Card>
+  <Card title="Error Recovery" icon="shield">
+    Implement robust error handling and reconnection
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="WebSocket Protocol" icon="code" href="/websocket/overview">
+    Complete WebSocket protocol reference
+  </Card>
+  <Card title="Presence & Typing" icon="users" href="/guides/presence-typing">
+    Presence and typing indicators
+  </Card>
+  <Card title="SDK Realtime" icon="bolt" href="/sdk/realtime">
+    SDK real-time features
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/guides/troubleshooting">
+    Common issues and solutions
+  </Card>
+</CardGroup>
+

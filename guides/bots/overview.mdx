@@ -1,0 +1,92 @@
+---
+title: "AI Bot Overview"
+description: "Understanding ChaterAfrika's AI bot capabilities"
+---
+
+## Overview
+
+ChaterAfrika includes an AI-powered bot system that can automatically respond to customer messages in support conversations using OpenAI and FAQ matching.
+
+## Features
+
+- **FAQ Matching** - Matches customer questions to FAQs
+- **OpenAI Integration** - Generates contextual responses
+- **Auto-escalation** - Escalates to human agents when needed
+- **Handover Management** - Seamless bot-to-agent transitions
+- **Analytics** - Track bot performance and feedback
+- **Department-specific** - Different bot configs per department
+
+## How It Works
+
+```
+1. Customer sends message in SUPPORT conversation
+   ↓
+2. Bot matches against FAQs
+   ↓
+3. If confidence high → Generate OpenAI response
+   ↓
+4. If confidence low → Escalate to agent (if enabled)
+   ↓
+5. Bot sends reply via WebSocket
+   ↓
+6. Analytics event logged
+```
+
+## Bot Configuration
+
+Configure bots per app and optionally per department:
+
+- **Enabled/Disabled** - Turn bot on/off
+- **OpenAI API Key** - Your OpenAI API key
+- **Model** - OpenAI model to use (default: gpt-4o-mini)
+- **Min Confidence** - Minimum FAQ match confidence (0-1)
+- **Auto-escalate** - Automatically escalate on low confidence
+- **Escalate Message** - Custom escalation message
+- **Department-specific** - Override global config per department
+
+## FAQ Management
+
+Bots use FAQs to answer questions:
+
+1. Create FAQs in your dashboard
+2. Bot matches customer questions to FAQs
+3. Uses FAQ answer as context for OpenAI
+4. Generates natural response
+
+## Handover Flow
+
+When bot hands over to agent:
+
+1. Bot sends handover message
+2. Conversation assigned to agent
+3. Agent receives notification
+4. Bot stops responding
+5. Agent takes over
+
+## Analytics
+
+Track bot performance:
+
+- **Reply Rate** - Percentage of messages bot replied to
+- **Confidence Scores** - Average FAQ match confidence
+- **Escalation Rate** - Percentage escalated to agents
+- **Feedback** - Customer feedback on bot responses
+- **Token Usage** - OpenAI token consumption
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="cog" href="/guides/bots/configuration">
+    Configure your bot
+  </Card>
+  <Card title="Analytics" icon="chart-bar" href="/guides/bots/analytics">
+    Bot analytics and metrics
+  </Card>
+  <Card title="FAQ Management" icon="question-circle" href="/guides/bots/faq">
+    Managing FAQs
+  </Card>
+  <Card title="API Reference" icon="terminal" href="/api-reference/bots/config">
+    Bot API endpoints
+  </Card>
+</CardGroup>
+

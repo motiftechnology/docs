@@ -1,0 +1,272 @@
+---
+title: "Messages"
+description: "Sending, receiving, and managing messages in ChaterAfrika"
+---
+
+## Overview
+
+Messages are the core communication unit in ChaterAfrika. They support real-time delivery, persistence, receipts, and various message types.
+
+## Message Flow
+
+```
+1. Client sends message via WebSocket
+   ↓
+2. Realtime Service receives and broadcasts
+   ↓
+3. Realtime Service publishes event to Redis
+   ↓
+4. Backend API persists message to database
+   ↓
+5. All connected clients receive message
+```
+
+## Sending Messages
+
+### Via WebSocket (Real-time)
+
+Messages are sent through WebSocket connections for real-time delivery.
+
+**Using the SDK:**
+
+```typescript
+import { ChatAfrika } from '@chatafrika/sdk';
+
+const client = new ChatAfrika({ /* config */ });
+await client.connect();
+await client.conversations.join(conversationId);
+
+// Send a message
+await client.messages.send({
+  conversationId: conversationId,
+  content: 'Hello, world!'
+});
+```
+
+**WebSocket Protocol:**
+
+```json
+{
+  "type": "message",
+  "conversation_id": "conversation-uuid",
+  "payload": {
+    "message_id": "message-uuid",
+    "content": "Hello, world!",
+    "message_type": "text"
+  }
+}
+```
+
+<Note>
+Messages are sent via WebSocket only. There is no REST API endpoint for sending messages. Use the SDK or connect directly to WebSocket.
+</Note>
+
+## Receiving Messages
+
+### Real-time (WebSocket)
+
+Messages are delivered in real-time to all connected clients in the conversation:
+
+```typescript
+// Using SDK
+client.messages.on('message', (message) => {
+  console.log('New message:', message.content);
+  console.log('From:', message.sender_id);
+  console.log('Type:', message.message_type);
+});
+```
+
+### Historical Messages (REST API)
+
+Retrieve message history using the REST API:
+
+```typescript
+const response = await fetch(
+  `https://api.chaterafrika.com/api/v1/conversations/${conversationId}/messages?limit=50`,
+  {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`
+    }
+  }
+);
+
+const { messages, pagination } = await response.json();
+```
+
+**Query Parameters:**
+- `limit` - Number of messages (default: 20, max: 100)
+- `cursor` - ISO timestamp for pagination
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "messages": [
+      {
+        "id": "message-uuid",
+        "conversation_id": "conversation-uuid",
+        "sender_id": "user-uuid",
+        "sender_type": "sdk",
+        "content": "Hello, world!",
+        "message_type": "text",
+        "created_at": "2024-01-01T00:00:00Z"
+      }
+    ],
+    "pagination": {
+      "has_next_page": true,
+      "next_cursor": "2024-01-01T00:00:00Z",
+      "limit": 50
+    }
+  }
+}
+```
+
+## Message Types
+
+### Text Messages
+
+Standard text messages:
+
+```typescript
+{
+  "message_type": "text",
+  "content": "Hello, world!"
+}
+```
+
+### System Messages
+
+System-generated messages (bot replies, notifications):
+
+```typescript
+{
+  "message_type": "system",
+  "content": "Bot: I can help you with that!"
+}
+```
+
+## Message States
+
+Messages go through different states:
+
+1. **Sent** - Message sent by client (optimistic)
+2. **Delivered** - Message delivered to recipients
+3. **Read** - Message read by recipients
+
+### Tracking Message States
+
+```typescript
+// Using SDK
+client.messages.on('message', (message) => {
+  console.log('Message state:', message.receiptState);
+  
+  // Listen for receipt updates
+  message.on('receipt', (receipt) => {
+    console.log('Receipt updated:', receipt);
+  });
+});
+```
+
+## Message Deduplication
+
+The SDK automatically handles message deduplication:
+
+- **Optimistic messages** - Created immediately when sending
+- **Server confirmation** - Replaces optimistic message when server confirms
+- **Duplicate prevention** - Same message_id won't be processed twice
+
+## Pagination
+
+Messages are paginated using cursor-based pagination:
+
+```typescript
+// First page
+const page1 = await fetch(
+  `https://api.chaterafrika.com/api/v1/conversations/${conversationId}/messages?limit=50`
+);
+
+// Next page
+const page2 = await fetch(
+  `https://api.chaterafrika.com/api/v1/conversations/${conversationId}/messages?limit=50&cursor=${page1.data.pagination.next_cursor}`
+);
+```
+
+<Note>
+Messages are ordered by `created_at` DESC (newest first). The cursor is the `created_at` timestamp of the last message.
+</Note>
+
+## Message Metadata
+
+Messages can include optional metadata:
+
+```typescript
+await client.messages.send({
+  conversationId: conversationId,
+  content: 'Check this out!',
+  metadata: {
+    attachment_url: 'https://example.com/file.pdf',
+    attachment_type: 'pdf'
+  }
+});
+```
+
+## Error Handling
+
+### Connection Errors
+
+```typescript
+client.on('error', (error) => {
+  console.error('Connection error:', error);
+  // Handle reconnection
+});
+```
+
+### Message Send Errors
+
+```typescript
+try {
+  await client.messages.send({
+    conversationId: conversationId,
+    content: 'Hello!'
+  });
+} catch (error) {
+  console.error('Failed to send message:', error);
+  // Handle error (e.g., retry, show to user)
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Optimistic Updates" icon="bolt">
+    Show messages immediately, then reconcile with server confirmation
+  </Card>
+  <Card title="Pagination" icon="list">
+    Use cursor-based pagination for message history
+  </Card>
+  <Card title="Error Handling" icon="exclamation-triangle">
+    Always handle connection and send errors gracefully
+  </Card>
+  <Card title="Receipt Tracking" icon="check">
+    Track delivery and read receipts for better UX
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Receipts" icon="check-double" href="/guides/receipts">
+    Learn about delivery and read receipts
+  </Card>
+  <Card title="Realtime" icon="bolt" href="/guides/realtime">
+    Real-time messaging features
+  </Card>
+  <Card title="API Reference" icon="terminal" href="/api-reference/messages/list">
+    View message API endpoints
+  </Card>
+  <Card title="SDK" icon="code" href="/sdk/messaging">
+    SDK messaging guide
+  </Card>
+</CardGroup>
+

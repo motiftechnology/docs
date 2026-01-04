@@ -1,0 +1,135 @@
+---
+title: "Support Routing"
+description: "How support conversations are routed to agents and departments"
+---
+
+## Overview
+
+Support routing automatically assigns support conversations to the right agents based on departments, availability, and routing rules.
+
+## Routing Flow
+
+```
+1. Customer creates SUPPORT conversation
+   ↓
+2. System checks department assignment
+   ↓
+3. Finds available agents in department
+   ↓
+4. Assigns to agent (round-robin or load-based)
+   ↓
+5. Agent receives notification
+   ↓
+6. Agent accepts and starts conversation
+```
+
+## Departments
+
+Departments organize agents and route conversations:
+
+- **Create Departments** - Organize agents by function
+- **Assign Agents** - Add agents to departments
+- **Department-specific Bots** - Different bot configs per department
+- **Department-specific FAQs** - FAQs scoped to departments
+
+## Agent Assignment
+
+### Automatic Assignment
+
+When a support conversation is created:
+
+1. If `department_id` specified → Route to that department
+2. Find available agents in department
+3. Assign using round-robin or load balancing
+4. Agent receives assignment notification
+
+### Manual Assignment
+
+Agents or admins can manually assign conversations:
+
+```typescript
+await fetch(
+  `https://api.chaterafrika.com/api/v1/support/conversations/${conversationId}/assign`,
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      agent_id: 'agent-uuid'
+    })
+  }
+);
+```
+
+## Agent Availability
+
+Agents can set their availability:
+
+- **Online** - Available for new assignments
+- **Offline** - Not available
+- **Away** - Temporarily unavailable
+
+Only online agents receive new assignments.
+
+## Conversation Transfer
+
+Transfer conversations between agents or departments:
+
+```typescript
+await fetch(
+  `https://api.chaterafrika.com/api/v1/support/conversations/${conversationId}/transfer`,
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      agent_id: 'new-agent-uuid',
+      department_id: 'new-department-uuid' // Optional
+    })
+  }
+);
+```
+
+## Support Inbox
+
+Agents can view their support inbox:
+
+- **Assigned** - Conversations assigned to agent
+- **Unassigned** - Conversations waiting for assignment
+- **All** - All support conversations
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Department Structure" icon="sitemap">
+    Organize departments by function or product
+  </Card>
+  <Card title="Agent Capacity" icon="users">
+    Monitor agent workload for balanced assignment
+  </Card>
+  <Card title="Auto-assignment" icon="magic">
+    Use automatic assignment for efficiency
+  </Card>
+  <Card title="Transfer Workflow" icon="exchange">
+    Establish clear transfer procedures
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Departments" icon="building" href="/guides/departments">
+    Department management
+  </Card>
+  <Card title="Agents" icon="user-tie" href="/guides/agents">
+    Agent management
+  </Card>
+  <Card title="API Reference" icon="terminal" href="/api-reference/support/assign">
+    Support API endpoints
+  </Card>
+</CardGroup>
+

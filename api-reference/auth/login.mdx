@@ -1,0 +1,151 @@
+---
+title: "Login"
+api: "POST /api/v1/auth/login"
+---
+
+## Overview
+
+Authenticate a user and receive access and refresh tokens.
+
+## Request
+
+<ParamField body="email" type="string" required>
+  User email address
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User password
+</ParamField>
+
+## Example Request
+
+```bash
+curl -X POST https://api.chaterafrika.com/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePassword123!"
+  }'
+```
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Request success status
+</ResponseField>
+
+<ResponseField name="data.user" type="object">
+  Authenticated user object
+</ResponseField>
+
+<ResponseField name="data.access_token" type="string">
+  JWT access token (15 minutes)
+</ResponseField>
+
+<ResponseField name="data.refresh_token" type="string">
+  JWT refresh token (long-lived)
+</ResponseField>
+
+### Success Response (200)
+
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "user@example.com",
+      "first_name": "John",
+      "last_name": "Doe",
+      "role": "OWNER",
+      "tenant_id": "660e8400-e29b-41d4-a716-446655440001"
+    },
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+## Error Responses
+
+### 401 Unauthorized - Invalid Credentials
+
+```json
+{
+  "success": false,
+  "message": "Invalid email or password",
+  "statusCode": 401
+}
+```
+
+### 400 Bad Request - Validation Error
+
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "statusCode": 400,
+  "errors": [
+    {
+      "field": "email",
+      "message": "email must be an email"
+    }
+  ]
+}
+```
+
+## Using the Tokens
+
+### Access Token
+
+Include in the `Authorization` header for API requests:
+
+```bash
+curl https://api.chaterafrika.com/api/v1/conversations \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+### Refresh Token
+
+Use to obtain new access tokens when they expire:
+
+```bash
+curl -X POST https://api.chaterafrika.com/api/v1/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh_token": "YOUR_REFRESH_TOKEN"
+  }'
+```
+
+## Token Expiration
+
+- **Access Token**: 15 minutes
+- **Refresh Token**: Long-lived (typically 7-30 days)
+
+<Warning>
+Always implement token refresh logic in your application to handle access token expiration.
+</Warning>
+
+## Security Best Practices
+
+- Never expose tokens in client-side code
+- Store tokens securely (secure HTTP-only cookies or secure storage)
+- Implement automatic token refresh
+- Use HTTPS in production
+- Rotate refresh tokens periodically
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Register" icon="user-plus" href="/api-reference/auth/register">
+    Register new user
+  </Card>
+  <Card title="Refresh Token" icon="refresh" href="/api-reference/auth/refresh">
+    Refresh access token
+  </Card>
+  <Card title="SDK Token" icon="key" href="/api-reference/auth/sdk-token">
+    Get SDK token
+  </Card>
+</CardGroup>
+

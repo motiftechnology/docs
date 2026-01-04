@@ -1,0 +1,314 @@
+---
+title: "WebSocket Overview"
+description: "Complete guide to ChaterAfrika WebSocket protocol"
+---
+
+## Overview
+
+ChaterAfrika uses WebSocket for real-time bidirectional communication. All real-time features (messaging, presence, typing) are delivered through WebSocket connections.
+
+## Connection
+
+### Endpoint
+
+```
+wss://realtime.chaterafrika.com/ws
+```
+
+### Authentication
+
+Authenticate using SDK token in the `Authorization` header:
+
+```javascript
+const ws = new WebSocket('wss://realtime.chaterafrika.com/ws', {
+  headers: {
+    'Authorization': `Bearer ${sdkToken}`
+  }
+});
+```
+
+Or using `Sec-WebSocket-Protocol` header:
+
+```javascript
+const ws = new WebSocket('wss://realtime.chaterafrika.com/ws', {
+  headers: {
+    'Sec-WebSocket-Protocol': sdkToken
+  }
+});
+```
+
+## Message Format
+
+All messages are JSON objects with the following structure:
+
+### Client → Server
+
+```typescript
+interface ClientMessage {
+  type: string;              // Message type
+  conversation_id?: string;  // Conversation ID (if applicable)
+  payload?: any;             // Message payload
+}
+```
+
+### Server → Client
+
+```typescript
+interface ServerMessage {
+  type: string;    // Message type or action
+  payload?: any;   // Response payload
+  error?: string;  // Error message (if error)
+}
+```
+
+## Message Types
+
+### Client Messages
+
+#### Join Room
+
+```json
+{
+  "type": "join",
+  "conversation_id": "conversation-uuid"
+}
+```
+
+**Response:**
+```json
+{
+  "type": "joined",
+  "payload": {
+    "conversation_id": "conversation-uuid"
+  }
+}
+```
+
+#### Leave Room
+
+```json
+{
+  "type": "leave",
+  "conversation_id": "conversation-uuid"
+}
+```
+
+**Response:**
+```json
+{
+  "type": "left",
+  "payload": {
+    "conversation_id": "conversation-uuid"
+  }
+}
+```
+
+#### Send Message
+
+```json
+{
+  "type": "message",
+  "conversation_id": "conversation-uuid",
+  "payload": {
+    "message_id": "message-uuid",
+    "content": "Hello, world!",
+    "message_type": "text"
+  }
+}
+```
+
+**Broadcast (to all room members):**
+```json
+{
+  "type": "message",
+  "conversation_id": "conversation-uuid",
+  "payload": {
+    "message_id": "message-uuid",
+    "sender_id": "user-uuid",
+    "sender_type": "sdk",
+    "content": "Hello, world!",
+    "message_type": "text",
+    "sent_at": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+#### Read Receipt
+
+```json
+{
+  "type": "read",
+  "conversation_id": "conversation-uuid",
+  "message_id": "message-uuid"
+}
+```
+
+#### Typing Start
+
+```json
+{
+  "type": "typing_start",
+  "conversation_id": "conversation-uuid"
+}
+```
+
+#### Typing Stop
+
+```json
+{
+  "type": "typing_stop",
+  "conversation_id": "conversation-uuid"
+}
+```
+
+### Server Messages
+
+#### Error
+
+```json
+{
+  "type": "error",
+  "error": "conversation_id is required"
+}
+```
+
+#### Typing Indicator
+
+```json
+{
+  "type": "typing",
+  "conversation_id": "conversation-uuid",
+  "payload": {
+    "user_id": "user-uuid",
+    "status": "typing"
+  }
+}
+```
+
+#### Presence Update
+
+```json
+{
+  "type": "presence",
+  "payload": {
+    "user_id": "user-uuid",
+    "status": "online"
+  }
+}
+```
+
+## Connection Lifecycle
+
+### 1. Connect
+
+```javascript
+const ws = new WebSocket('wss://realtime.chaterafrika.com/ws', {
+  headers: {
+    'Authorization': `Bearer ${sdkToken}`
+  }
+});
+
+ws.onopen = () => {
+  console.log('Connected!');
+};
+```
+
+### 2. Join Conversations
+
+```javascript
+ws.send(JSON.stringify({
+  type: 'join',
+  conversation_id: 'conversation-uuid'
+}));
+```
+
+### 3. Send Messages
+
+```javascript
+ws.send(JSON.stringify({
+  type: 'message',
+  conversation_id: 'conversation-uuid',
+  payload: {
+    message_id: generateUUID(),
+    content: 'Hello!',
+    message_type: 'text'
+  }
+}));
+```
+
+### 4. Receive Messages
+
+```javascript
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  
+  if (message.type === 'message') {
+    console.log('New message:', message.payload.content);
+  }
+};
+```
+
+### 5. Handle Errors
+
+```javascript
+ws.onerror = (error) => {
+  console.error('WebSocket error:', error);
+};
+
+ws.onclose = (event) => {
+  console.log('Connection closed:', event.code, event.reason);
+  // Implement reconnection logic
+};
+```
+
+## Multi-Node Architecture
+
+The realtime service supports horizontal scaling:
+
+- Multiple nodes can run simultaneously
+- Redis Pub/Sub for inter-node communication
+- Messages broadcast across all nodes
+- Load balancer distributes connections
+
+## Error Codes
+
+- `1000` - Normal closure
+- `1001` - Going away
+- `1006` - Abnormal closure
+- `1008` - Policy violation
+- `1011` - Internal error
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Reconnection" icon="refresh">
+    Implement automatic reconnection with exponential backoff
+  </Card>
+  <Card title="Heartbeat" icon="heart">
+    Send periodic pings to keep connection alive
+  </Card>
+  <Card title="Error Handling" icon="exclamation-triangle">
+    Handle all error types gracefully
+  </Card>
+  <Card title="Message Queuing" icon="inbox">
+    Queue messages when disconnected
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/websocket/authentication">
+    WebSocket authentication details
+  </Card>
+  <Card title="Message Types" icon="list" href="/websocket/message-types">
+    Complete message type reference
+  </Card>
+  <Card title="Rooms" icon="door-open" href="/websocket/rooms">
+    Room management
+  </Card>
+  <Card title="SDK" icon="code" href="/sdk/overview">
+    Use the SDK instead
+  </Card>
+</CardGroup>
+

@@ -1,0 +1,240 @@
+---
+title: "Get SDK Token"
+api: "POST /api/v1/auth/sdk-token"
+---
+
+## Overview
+
+Exchange SDK credentials (app_id, app_secret, user_id) for a JWT token to connect to the WebSocket service.
+
+<Note>
+This endpoint is for client applications. Use login/register for dashboard/admin access.
+</Note>
+
+## Request
+
+<ParamField body="app_id" type="string" required>
+  Your app ID (from dashboard)
+</ParamField>
+
+<ParamField body="app_secret" type="string" required>
+  Your app secret (from dashboard)
+</ParamField>
+
+<ParamField body="user_id" type="string" required>
+  Customer/user identifier in your system
+</ParamField>
+
+## Example Request
+
+```bash
+curl -X POST https://api.chaterafrika.com/api/v1/auth/sdk-token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_id": "your-app-id",
+    "app_secret": "your-app-secret",
+    "user_id": "customer-user-id"
+  }'
+```
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Request success status
+</ResponseField>
+
+<ResponseField name="data.token" type="string">
+  JWT SDK token (15 minutes)
+</ResponseField>
+
+<ResponseField name="data.expires_in" type="number">
+  Token expiration time in seconds (900 = 15 minutes)
+</ResponseField>
+
+### Success Response (200)
+
+```json
+{
+  "success": true,
+  "message": "SDK token issued successfully",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expires_in": 900
+  }
+}
+```
+
+## Error Responses
+
+### 401 Unauthorized - Invalid Credentials
+
+```json
+{
+  "success": false,
+  "message": "Invalid app credentials",
+  "statusCode": 401
+}
+```
+
+### 403 Forbidden - App Disabled
+
+```json
+{
+  "success": false,
+  "message": "App is disabled",
+  "statusCode": 403
+}
+```
+
+### 400 Bad Request - Validation Error
+
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "statusCode": 400,
+  "errors": [
+    {
+      "field": "app_id",
+      "message": "app_id should not be empty"
+    }
+  ]
+}
+```
+
+## Using the SDK Token
+
+### Connect to WebSocket
+
+```typescript
+const response = await fetch('https://api.chaterafrika.com/api/v1/auth/sdk-token', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    app_id: 'your-app-id',
+    app_secret: 'your-app-secret',
+    user_id: 'customer-id'
+  })
+});
+
+const { token } = await response.json();
+
+// Connect to WebSocket
+const ws = new WebSocket('wss://realtime.chaterafrika.com/ws', {
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+});
+```
+
+### Using the SDK
+
+```typescript
+import { ChatAfrika } from '@chatafrika/sdk';
+
+// Get token first
+const tokenResponse = await fetch('https://api.chaterafrika.com/api/v1/auth/sdk-token', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    app_id: 'your-app-id',
+    app_secret: 'your-app-secret',
+    user_id: 'customer-id'
+  })
+});
+
+const { token } = await tokenResponse.json();
+
+// Initialize SDK with token
+const client = new ChatAfrika({
+  apiUrl: 'https://api.chaterafrika.com',
+  wsUrl: 'wss://realtime.chaterafrika.com',
+  sdkToken: token
+});
+
+await client.connect();
+```
+
+## Token Expiration
+
+SDK tokens expire in **15 minutes**. Implement token refresh:
+
+```typescript
+let sdkToken: string;
+let tokenExpiry: number;
+
+async function getSDKToken() {
+  // Check if token is still valid
+  if (sdkToken && Date.now() < tokenExpiry) {
+    return sdkToken;
+  }
+
+  // Get new token
+  const response = await fetch('https://api.chaterafrika.com/api/v1/auth/sdk-token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      app_id: 'your-app-id',
+      app_secret: 'your-app-secret',
+      user_id: 'customer-id'
+    })
+  });
+
+  const { token, expires_in } = await response.json();
+  sdkToken = token;
+  tokenExpiry = Date.now() + (expires_in * 1000);
+
+  return token;
+}
+
+// Refresh token before expiration
+setInterval(async () => {
+  await getSDKToken();
+}, 14 * 60 * 1000); // Refresh every 14 minutes
+```
+
+## Security
+
+<Warning>
+Never expose `app_secret` in client-side code. SDK tokens should be obtained server-side and provided to clients.
+</Warning>
+
+**Recommended Flow:**
+
+1. Client requests SDK token from your server
+2. Your server calls this endpoint with app credentials
+3. Your server returns SDK token to client
+4. Client uses SDK token for WebSocket connection
+
+## Token Payload
+
+The SDK token contains:
+
+```json
+{
+  "sub": "user-id",
+  "tenant_id": "tenant-id",
+  "app_id": "app-id",
+  "app_environment": "PROD",
+  "user_type": "sdk",
+  "role": "member",
+  "aud": "chaterafrika-sdk",
+  "iat": 1234567890,
+  "exp": 1234568790
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="WebSocket Auth" icon="bolt" href="/websocket/authentication">
+    WebSocket authentication guide
+  </Card>
+  <Card title="SDK Guide" icon="code" href="/sdk/authentication">
+    SDK authentication
+  </Card>
+  <Card title="Realtime" icon="zap" href="/guides/realtime">
+    Real-time features
+  </Card>
+</CardGroup>
+

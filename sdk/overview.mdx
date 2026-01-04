@@ -1,0 +1,257 @@
+---
+title: "SDK Overview"
+description: "Complete guide to the ChaterAfrika JavaScript SDK"
+---
+
+## Introduction
+
+The ChaterAfrika JavaScript SDK is a headless SDK for integrating real-time chat, messaging, presence, and support features into your applications.
+
+## Installation
+
+```bash
+npm install @chatafrika/sdk
+```
+
+## Quick Start
+
+```typescript
+import { ChatAfrika } from '@chatafrika/sdk';
+
+// Initialize SDK
+const client = new ChatAfrika({
+  apiUrl: 'https://api.chaterafrika.com',
+  wsUrl: 'wss://realtime.chaterafrika.com',
+  sdkToken: 'your-sdk-token'
+});
+
+// Connect
+await client.connect();
+
+// Join conversation
+await client.conversations.join('conversation-id');
+
+// Send message
+await client.messages.send({
+  conversationId: 'conversation-id',
+  content: 'Hello, world!'
+});
+
+// Listen for messages
+client.messages.on('message', (message) => {
+  console.log('New message:', message.content);
+});
+```
+
+## Core Features
+
+### ✅ Real-time Messaging
+
+- Send and receive messages instantly
+- Optimistic message updates
+- Automatic message reconciliation
+- Message deduplication
+
+### ✅ Presence Management
+
+- Track user online/offline status
+- Real-time presence updates
+- Automatic presence tracking
+
+### ✅ Typing Indicators
+
+- Show when users are typing
+- Automatic timeout (5 seconds)
+- Per-conversation typing state
+
+### ✅ Read Receipts
+
+- Track message delivery
+- Track message reads
+- Receipt lifecycle management
+
+### ✅ Support Sessions
+
+- Customer/Agent role awareness
+- Support session lifecycle
+- Agent assignment tracking
+- Bot handover management
+
+### ✅ Connection Management
+
+- Automatic reconnection
+- Connection state tracking
+- Token-based authentication
+- Graceful disconnection
+
+## SDK Architecture
+
+```
+ChatAfrika (Main Client)
+├── Conversations Manager
+│   ├── Join/Leave rooms
+│   └── Conversation state
+├── Message Manager
+│   ├── Send messages
+│   ├── Receive messages
+│   ├── Optimistic updates
+│   └── Deduplication
+├── Presence Manager
+│   ├── Update status
+│   └── Track others' status
+├── Typing Manager
+│   ├── Start/Stop typing
+│   └── Receive typing events
+├── Receipt Manager
+│   ├── Mark as read
+│   └── Track receipts
+└── Support Manager
+    ├── Support sessions
+    └── Agent assignment
+```
+
+## Configuration
+
+```typescript
+interface ClientConfig {
+  apiUrl: string;           // Backend API URL
+  wsUrl: string;            // WebSocket URL
+  sdkToken: string;         // SDK token
+  debug?: boolean;          // Enable debug logging
+  reconnectDelay?: number;  // Reconnection delay (ms)
+  maxReconnectDelay?: number; // Max reconnection delay (ms)
+}
+```
+
+## Event-Driven Architecture
+
+The SDK uses EventEmitter for all events:
+
+```typescript
+// Listen to connection state
+client.on('connection_state', (state) => {
+  console.log('Connection state:', state);
+});
+
+// Listen to messages
+client.messages.on('message', (message) => {
+  console.log('Message:', message);
+});
+
+// Listen to presence
+client.presence.on('update', (update) => {
+  console.log('Presence:', update);
+});
+
+// Listen to typing
+client.typing.on('typing', (event) => {
+  console.log('Typing:', event);
+});
+
+// Listen to receipts
+client.receipts.on('receipt', (receipt) => {
+  console.log('Receipt:', receipt);
+});
+```
+
+## Message Lifecycle
+
+1. **Send Message** → Optimistic message created
+2. **Server Confirms** → Message reconciled
+3. **Delivered** → Delivery receipt received
+4. **Read** → Read receipt received
+
+```typescript
+const message = await client.messages.send({
+  conversationId: 'conv-id',
+  content: 'Hello!'
+});
+
+// Message starts as optimistic
+console.log(message.receiptState); // 'sent'
+
+// Listen for receipt updates
+message.on('receipt', (receipt) => {
+  console.log('Receipt state:', receipt.state);
+  // 'delivered' or 'read'
+});
+```
+
+## Error Handling
+
+```typescript
+// Connection errors
+client.on('error', (error) => {
+  console.error('SDK error:', error);
+});
+
+// Message send errors
+try {
+  await client.messages.send({
+    conversationId: 'conv-id',
+    content: 'Hello!'
+  });
+} catch (error) {
+  console.error('Send failed:', error);
+}
+```
+
+## TypeScript Support
+
+The SDK is written in TypeScript and includes full type definitions:
+
+```typescript
+import { ChatAfrika, Message, Conversation } from '@chatafrika/sdk';
+
+const client: ChatAfrika = new ChatAfrika({ /* config */ });
+const message: Message = await client.messages.send({ /* ... */ });
+```
+
+## Browser Support
+
+- Chrome/Edge (latest)
+- Firefox (latest)
+- Safari (latest)
+- Mobile browsers (iOS Safari, Chrome Mobile)
+
+## Node.js Support
+
+The SDK works in Node.js environments:
+
+```typescript
+import { ChatAfrika } from '@chatafrika/sdk';
+import WebSocket from 'ws';
+
+// Use ws library for Node.js
+const client = new ChatAfrika({
+  apiUrl: 'https://api.chaterafrika.com',
+  wsUrl: 'wss://realtime.chaterafrika.com',
+  sdkToken: 'token',
+  // WebSocket implementation for Node.js
+  wsImplementation: WebSocket
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/sdk/installation">
+    Installation and setup
+  </Card>
+  <Card title="Authentication" icon="key" href="/sdk/authentication">
+    SDK authentication
+  </Card>
+  <Card title="Conversations" icon="comments" href="/sdk/conversations">
+    Conversation management
+  </Card>
+  <Card title="Messaging" icon="message" href="/sdk/messaging">
+    Sending and receiving messages
+  </Card>
+  <Card title="Presence" icon="user" href="/sdk/presence">
+    Presence management
+  </Card>
+  <Card title="Examples" icon="code" href="/sdk/examples">
+    Code examples
+  </Card>
+</CardGroup>
+

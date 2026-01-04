@@ -1,0 +1,208 @@
+---
+title: "Register User"
+api: "POST /api/v1/auth/register"
+---
+
+## Overview
+
+Register a new user and automatically create a tenant. This endpoint creates both a user account and a tenant organization in a single request.
+
+<Note>
+Each registration creates a new tenant. The registered user becomes the OWNER of the created tenant.
+</Note>
+
+## Request
+
+<ParamField body="email" type="string" required>
+  User email address (must be unique across all tenants)
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User password (must meet security requirements)
+</ParamField>
+
+<ParamField body="company_name" type="string" required>
+  Company name (used to create tenant)
+</ParamField>
+
+<ParamField body="first_name" type="string">
+  User's first name
+</ParamField>
+
+<ParamField body="last_name" type="string">
+  User's last name
+</ParamField>
+
+<ParamField body="phone" type="string">
+  User's phone number
+</ParamField>
+
+<ParamField body="country" type="string">
+  User's country
+</ParamField>
+
+<ParamField body="job_title" type="string">
+  User's job title
+</ParamField>
+
+<ParamField body="company_slug" type="string">
+  Custom tenant slug (optional, auto-generated if not provided)
+</ParamField>
+
+## Example Request
+
+```bash
+curl -X POST https://api.chaterafrika.com/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePassword123!",
+    "company_name": "Acme Corp",
+    "first_name": "John",
+    "last_name": "Doe"
+  }'
+```
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Request success status
+</ResponseField>
+
+<ResponseField name="data.user" type="object">
+  Created user object
+</ResponseField>
+
+<ResponseField name="data.user.id" type="string">
+  User UUID
+</ResponseField>
+
+<ResponseField name="data.user.email" type="string">
+  User email
+</ResponseField>
+
+<ResponseField name="data.user.role" type="string">
+  User role (always "OWNER" for new registrations)
+</ResponseField>
+
+<ResponseField name="data.tenant" type="object">
+  Created tenant object
+</ResponseField>
+
+<ResponseField name="data.tenant.id" type="string">
+  Tenant UUID
+</ResponseField>
+
+<ResponseField name="data.tenant.name" type="string">
+  Tenant name
+</ResponseField>
+
+<ResponseField name="data.tenant.slug" type="string">
+  Tenant slug (auto-generated)
+</ResponseField>
+
+<ResponseField name="data.access_token" type="string">
+  JWT access token (15 minutes)
+</ResponseField>
+
+<ResponseField name="data.refresh_token" type="string">
+  JWT refresh token (long-lived)
+</ResponseField>
+
+### Success Response (201)
+
+```json
+{
+  "success": true,
+  "message": "User and tenant created successfully",
+  "data": {
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "user@example.com",
+      "first_name": "John",
+      "last_name": "Doe",
+      "role": "OWNER"
+    },
+    "tenant": {
+      "id": "660e8400-e29b-41d4-a716-446655440001",
+      "name": "Acme Corp",
+      "slug": "acme-corp"
+    },
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+## Error Responses
+
+### 409 Conflict - User Already Exists
+
+```json
+{
+  "success": false,
+  "message": "User with this email already exists",
+  "statusCode": 409
+}
+```
+
+### 400 Bad Request - Validation Error
+
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "statusCode": 400,
+  "errors": [
+    {
+      "field": "email",
+      "message": "email must be an email"
+    }
+  ]
+}
+```
+
+## Tenant Slug Generation
+
+If `company_slug` is not provided, a slug is auto-generated from `company_name`:
+
+- Converted to lowercase
+- Spaces replaced with hyphens
+- Special characters removed
+- If slug exists, appends `-1`, `-2`, etc.
+
+**Examples:**
+- "Acme Corp" → "acme-corp"
+- "My Company" → "my-company"
+- "Acme Corp" (if exists) → "acme-corp-1"
+
+## Security
+
+- Passwords are hashed using bcrypt
+- Email must be unique across all tenants
+- Password must meet security requirements
+- Access token expires in 15 minutes
+- Use refresh token to obtain new access tokens
+
+## Next Steps
+
+After registration:
+
+1. Store the `access_token` and `refresh_token`
+2. Use `access_token` for API requests
+3. Use `refresh_token` to get new access tokens
+4. Create apps for SDK integration
+5. Set up departments and agents
+
+<CardGroup cols={2}>
+  <Card title="Login" icon="sign-in" href="/api-reference/auth/login">
+    Login endpoint
+  </Card>
+  <Card title="Refresh Token" icon="refresh" href="/api-reference/auth/refresh">
+    Refresh access token
+  </Card>
+  <Card title="Authentication Guide" icon="book" href="/guides/authentication">
+    Complete authentication guide
+  </Card>
+</CardGroup>
+

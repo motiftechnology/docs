@@ -1,0 +1,227 @@
+---
+title: "Create Conversation"
+api: "POST /api/v1/conversations"
+---
+
+## Overview
+
+Create a new conversation. Supports three types: DIRECT, GROUP, and SUPPORT conversations.
+
+## Request
+
+<ParamField body="type" type="string" required>
+  Conversation type: `"direct"`, `"group"`, or `"support"`
+</ParamField>
+
+<ParamField body="member_ids" type="string[]" required>
+  Array of user IDs to add as members
+</ParamField>
+
+<ParamField body="title" type="string">
+  Conversation title (required for GROUP and SUPPORT, optional for DIRECT)
+</ParamField>
+
+<ParamField body="customer_id" type="string">
+  Customer ID (required for SUPPORT conversations)
+</ParamField>
+
+<ParamField body="department_id" type="string">
+  Department ID (optional for SUPPORT conversations)
+</ParamField>
+
+## Conversation Types
+
+### DIRECT Conversation
+
+One-on-one conversation between two users.
+
+**Requirements:**
+- `type`: `"direct"`
+- `member_ids`: Exactly 1 user ID (the other participant)
+- `title`: Optional (not used)
+
+**Example:**
+```json
+{
+  "type": "direct",
+  "member_ids": ["550e8400-e29b-41d4-a716-446655440000"]
+}
+```
+
+<Note>
+If a DIRECT conversation already exists between the two users, returns 409 Conflict with the existing conversation.
+</Note>
+
+### GROUP Conversation
+
+Multi-user conversation for team collaboration.
+
+**Requirements:**
+- `type`: `"group"`
+- `member_ids`: At least 1 user ID (up to 100 members)
+- `title`: Required
+
+**Example:**
+```json
+{
+  "type": "group",
+  "title": "Engineering Team",
+  "member_ids": [
+    "550e8400-e29b-41d4-a716-446655440000",
+    "660e8400-e29b-41d4-a716-446655440001"
+  ]
+}
+```
+
+### SUPPORT Conversation
+
+Customer support conversation with routing capabilities.
+
+**Requirements:**
+- `type`: `"support"`
+- `member_ids`: At least 1 user ID (typically agents)
+- `title`: Required
+- `customer_id`: Required
+
+**Example:**
+```json
+{
+  "type": "support",
+  "title": "Support Request",
+  "member_ids": ["agent-id"],
+  "customer_id": "customer-id",
+  "department_id": "department-id"
+}
+```
+
+## Example Request
+
+```bash
+curl -X POST https://api.chaterafrika.com/api/v1/conversations \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "group",
+    "title": "Engineering Team",
+    "member_ids": ["user-id-1", "user-id-2"]
+  }'
+```
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Request success status
+</ResponseField>
+
+<ResponseField name="data.id" type="string">
+  Conversation UUID
+</ResponseField>
+
+<ResponseField name="data.type" type="string">
+  Conversation type
+</ResponseField>
+
+<ResponseField name="data.title" type="string">
+  Conversation title
+</ResponseField>
+
+<ResponseField name="data.members" type="array">
+  Array of conversation members
+</ResponseField>
+
+### Success Response (201)
+
+```json
+{
+  "success": true,
+  "message": "Conversation created successfully",
+  "data": {
+    "id": "770e8400-e29b-41d4-a716-446655440002",
+    "type": "group",
+    "title": "Engineering Team",
+    "tenant_id": "660e8400-e29b-41d4-a716-446655440001",
+    "members": [
+      {
+        "user_id": "550e8400-e29b-41d4-a716-446655440000",
+        "role": "OWNER"
+      },
+      {
+        "user_id": "660e8400-e29b-41d4-a716-446655440001",
+        "role": "MEMBER"
+      }
+    ],
+    "created_at": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+## Error Responses
+
+### 409 Conflict - DIRECT Conversation Exists
+
+```json
+{
+  "success": false,
+  "message": "Direct conversation already exists",
+  "statusCode": 409,
+  "data": {
+    "conversation": {
+      "id": "existing-conversation-id",
+      "type": "direct"
+    }
+  }
+}
+```
+
+### 400 Bad Request - Validation Error
+
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "statusCode": 400,
+  "errors": [
+    {
+      "field": "title",
+      "message": "title is required for group conversations"
+    }
+  ]
+}
+```
+
+### 404 Not Found - User Not Found
+
+```json
+{
+  "success": false,
+  "message": "One or more users not found",
+  "statusCode": 404
+}
+```
+
+## Business Rules
+
+- Creator is automatically added as OWNER
+- All specified members are added as MEMBER
+- Only one DIRECT conversation can exist between any two users
+- GROUP conversations can have 2-100 members
+- SUPPORT conversations require a customer_id
+- All users must belong to the same tenant
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="List Conversations" icon="list" href="/api-reference/conversations/list">
+    List all conversations
+  </Card>
+  <Card title="Get Conversation" icon="eye" href="/api-reference/conversations/get">
+    Get conversation details
+  </Card>
+  <Card title="Add Member" icon="user-plus" href="/api-reference/conversations/add-member">
+    Add member to conversation
+  </Card>
+  <Card title="Conversations Guide" icon="book" href="/guides/conversations">
+    Complete conversations guide
+  </Card>
+</CardGroup>
+
