@@ -21,7 +21,7 @@ import { ChatAfrika } from '@chatafrika/sdk';
 // Initialize SDK
 const client = new ChatAfrika({
   apiUrl: 'https://api.chaterafrika.com',
-  wsUrl: 'wss://realtime.chaterafrika.com',
+  wsUrl: 'wss://ws.dev.chaterafrika.com',
   sdkToken: 'your-sdk-token'
 });
 
@@ -225,7 +225,7 @@ import WebSocket from 'ws';
 // Use ws library for Node.js
 const client = new ChatAfrika({
   apiUrl: 'https://api.chaterafrika.com',
-  wsUrl: 'wss://realtime.chaterafrika.com',
+  wsUrl: 'wss://ws.dev.chaterafrika.com',
   sdkToken: 'token',
   // WebSocket implementation for Node.js
   wsImplementation: WebSocket

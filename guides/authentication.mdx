@@ -167,7 +167,7 @@ SDK tokens are used for WebSocket connections:
 // Using the SDK
 const client = new ChatAfrika({
   apiUrl: 'https://api.chaterafrika.com',
-  wsUrl: 'wss://realtime.chaterafrika.com',
+  wsUrl: 'wss://ws.dev.chaterafrika.com',
   sdkToken: 'YOUR_SDK_TOKEN'
 });
 
@@ -177,7 +177,7 @@ await client.connect();
 Or manually:
 
 ```javascript
-const ws = new WebSocket('wss://realtime.chaterafrika.com/ws', {
+const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', {
   headers: {
     'Authorization': `Bearer ${sdkToken}`
   }

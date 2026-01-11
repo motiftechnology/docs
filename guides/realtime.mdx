@@ -12,7 +12,7 @@ ChaterAfrika provides real-time features through WebSocket connections. The real
 ### Connection Endpoint
 
 ```
-wss://realtime.chaterafrika.com/ws
+wss://ws.dev.chaterafrika.com/ws
 ```
 
 ### Authentication
@@ -20,7 +20,7 @@ wss://realtime.chaterafrika.com/ws
 Connect with SDK token in the `Authorization` header:
 
 ```typescript
-const ws = new WebSocket('wss://realtime.chaterafrika.com/ws', {
+const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', {
   headers: {
     'Authorization': `Bearer ${sdkToken}`
   }
@@ -34,7 +34,7 @@ import { ChatAfrika } from '@chatafrika/sdk';
 
 const client = new ChatAfrika({
   apiUrl: 'https://api.chaterafrika.com',
-  wsUrl: 'wss://realtime.chaterafrika.com',
+  wsUrl: 'wss://ws.dev.chaterafrika.com',
   sdkToken: 'your-sdk-token'
 });
 

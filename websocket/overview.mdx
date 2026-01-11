@@ -12,7 +12,7 @@ ChaterAfrika uses WebSocket for real-time bidirectional communication. All real-
 ### Endpoint
 
 ```
-wss://realtime.chaterafrika.com/ws
+wss://ws.dev.chaterafrika.com/ws
 ```
 
 ### Authentication
@@ -20,7 +20,7 @@ wss://realtime.chaterafrika.com/ws
 Authenticate using SDK token in the `Authorization` header:
 
 ```javascript
-const ws = new WebSocket('wss://realtime.chaterafrika.com/ws', {
+const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', {
   headers: {
     'Authorization': `Bearer ${sdkToken}`
   }
@@ -30,7 +30,7 @@ const ws = new WebSocket('wss://realtime.chaterafrika.com/ws', {
 Or using `Sec-WebSocket-Protocol` header:
 
 ```javascript
-const ws = new WebSocket('wss://realtime.chaterafrika.com/ws', {
+const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', {
   headers: {
     'Sec-WebSocket-Protocol': sdkToken
   }
@@ -202,7 +202,7 @@ interface ServerMessage {
 ### 1. Connect
 
 ```javascript
-const ws = new WebSocket('wss://realtime.chaterafrika.com/ws', {
+const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', {
   headers: {
     'Authorization': `Bearer ${sdkToken}`
   }

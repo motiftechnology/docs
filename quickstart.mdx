@@ -48,7 +48,7 @@ import { ChatAfrika } from '@chatafrika/sdk';
 // Initialize the SDK with your credentials
 const client = new ChatAfrika({
   apiUrl: 'https://api.chaterafrika.com', // Your API endpoint
-  wsUrl: 'wss://realtime.chaterafrika.com', // Your WebSocket endpoint
+  wsUrl: 'wss://ws.dev.chaterafrika.com', // Your WebSocket endpoint
   sdkToken: 'your_sdk_token' // Get this from your dashboard
 });
 
@@ -120,7 +120,7 @@ async function initializeChat() {
   // Initialize SDK
   const client = new ChatAfrika({
     apiUrl: 'https://api.chaterafrika.com',
-    wsUrl: 'wss://realtime.chaterafrika.com',
+    wsUrl: 'wss://ws.dev.chaterafrika.com',
     sdkToken: 'your_sdk_token'
   });
 
@@ -215,7 +215,7 @@ For real-time features, connect to the WebSocket service:
 await client.connect();
 
 // Or manually
-const ws = new WebSocket('wss://realtime.chaterafrika.com/ws', {
+const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', {
   headers: {
     'Authorization': `Bearer ${sdkToken}`
   }

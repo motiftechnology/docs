@@ -42,7 +42,7 @@ import { ChatAfrika } from '@chatafrika/sdk';
 ```typescript
 const client = new ChatAfrika({
   apiUrl: 'https://api.chaterafrika.com',
-  wsUrl: 'wss://realtime.chaterafrika.com',
+  wsUrl: 'wss://ws.dev.chaterafrika.com',
   sdkToken: 'your-sdk-token'
 });
 ```
@@ -104,7 +104,7 @@ async function getSDKToken(userId: string) {
 const token = await getSDKToken('customer-id');
 const client = new ChatAfrika({
   apiUrl: 'https://api.chaterafrika.com',
-  wsUrl: 'wss://realtime.chaterafrika.com',
+  wsUrl: 'wss://ws.dev.chaterafrika.com',
   sdkToken: token
 });
 ```
@@ -125,7 +125,7 @@ async function initializeChat() {
   // Initialize SDK
   const client = new ChatAfrika({
     apiUrl: 'https://api.chaterafrika.com',
-    wsUrl: 'wss://realtime.chaterafrika.com',
+    wsUrl: 'wss://ws.dev.chaterafrika.com',
     sdkToken: token,
     debug: true // Enable in development
   });
@@ -176,7 +176,7 @@ import { ChatAfrika } from '@chatafrika/sdk';
 
 const client = new ChatAfrika({
   apiUrl: 'https://api.chaterafrika.com',
-  wsUrl: 'wss://realtime.chaterafrika.com',
+  wsUrl: 'wss://ws.dev.chaterafrika.com',
   sdkToken: token,
   wsImplementation: WebSocket // For Node.js
 });
