@@ -5,19 +5,19 @@ description: "Install and set up the ChaterAfrika JavaScript SDK"
 
 ## Installation
 
-### npm
+### NPM
 
 ```bash
 npm install @chatafrika/sdk
 ```
 
-### yarn
+### Yarn
 
 ```bash
 yarn add @chatafrika/sdk
 ```
 
-### pnpm
+### PNPM
 
 ```bash
 pnpm add @chatafrika/sdk
@@ -25,177 +25,227 @@ pnpm add @chatafrika/sdk
 
 ## Requirements
 
-- **Node.js**: >= 18
-- **Browser**: Modern browsers (Chrome, Firefox, Safari, Edge)
-- **TypeScript**: Optional but recommended
+- Node.js 16+ or modern browser
+- WebSocket support (native in browsers, use `ws` package for Node.js)
 
 ## Basic Setup
 
-### 1. Import the SDK
+### Browser / React / Vue / etc.
 
 ```typescript
 import { ChatAfrika } from '@chatafrika/sdk';
-```
 
-### 2. Initialize the Client
-
-```typescript
 const client = new ChatAfrika({
-  apiUrl: 'https://api.chaterafrika.com',
   wsUrl: 'wss://ws.dev.chaterafrika.com',
-  sdkToken: 'your-sdk-token'
+  token: 'your-sdk-token',
+  debug: true // Enable for development
 });
+
+await client.connect();
 ```
 
-### 3. Connect
+### Node.js
+
+For Node.js environments, the SDK uses the native WebSocket when available:
 
 ```typescript
+import { ChatAfrika } from '@chatafrika/sdk';
+
+const client = new ChatAfrika({
+  wsUrl: 'wss://ws.dev.chaterafrika.com',
+  token: 'your-sdk-token',
+  debug: true
+});
+
 await client.connect();
-console.log('Connected to ChaterAfrika');
 ```
 
 ## Configuration Options
 
-<ParamField name="apiUrl" type="string" required>
-  Backend API URL
-</ParamField>
+```typescript
+interface ClientConfig {
+  // Required
+  wsUrl: string;              // WebSocket server URL
+  token: string;              // SDK authentication token
 
-<ParamField name="wsUrl" type="string" required>
-  WebSocket URL for real-time features
-</ParamField>
+  // Optional
+  apiUrl?: string;            // REST API URL (for future use)
+  debug?: boolean;            // Enable debug logging (default: false)
+  autoReconnect?: boolean;    // Auto-reconnect on disconnect (default: true)
+  maxReconnectAttempts?: number; // Max reconnect attempts (default: 5)
+  reconnectDelay?: number;    // Initial reconnect delay in ms (default: 1000)
+}
+```
 
-<ParamField name="sdkToken" type="string" required>
-  SDK token (obtain from `/api/v1/auth/sdk-token`)
-</ParamField>
-
-<ParamField name="debug" type="boolean">
-  Enable debug logging (default: false)
-</ParamField>
-
-<ParamField name="reconnectDelay" type="number">
-  Initial reconnection delay in ms (default: 1000)
-</ParamField>
-
-<ParamField name="maxReconnectDelay" type="number">
-  Maximum reconnection delay in ms (default: 30000)
-</ParamField>
-
-## Getting SDK Token
-
-You need an SDK token to connect. Get it from your backend:
+### Example Configuration
 
 ```typescript
-async function getSDKToken(userId: string) {
-  const response = await fetch('https://api.chaterafrika.com/api/v1/auth/sdk-token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      app_id: 'your-app-id',
-      app_secret: 'your-app-secret',
-      user_id: userId
-    })
-  });
-  
-  const { token } = await response.json();
-  return token;
-}
-
-// Use the token
-const token = await getSDKToken('customer-id');
 const client = new ChatAfrika({
-  apiUrl: 'https://api.chaterafrika.com',
   wsUrl: 'wss://ws.dev.chaterafrika.com',
-  sdkToken: token
+  token: 'your-sdk-token',
+  apiUrl: 'https://api.chaterafrika.com', // Optional
+  debug: process.env.NODE_ENV === 'development',
+  autoReconnect: true,
+  maxReconnectAttempts: 10,
+  reconnectDelay: 2000
 });
 ```
 
-<Warning>
-Never expose `app_secret` in client-side code. Get SDK tokens server-side.
-</Warning>
+## Getting Your SDK Token
 
-## Complete Example
+SDK tokens are short-lived tokens (15 minutes) used for WebSocket authentication.
 
-```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
-
-async function initializeChat() {
-  // Get SDK token (from your server)
-  const token = await getSDKToken('customer-id');
-  
-  // Initialize SDK
-  const client = new ChatAfrika({
-    apiUrl: 'https://api.chaterafrika.com',
-    wsUrl: 'wss://ws.dev.chaterafrika.com',
-    sdkToken: token,
-    debug: true // Enable in development
-  });
-  
-  // Connect
-  await client.connect();
-  
-  // Listen for connection state
-  client.on('connection_state', (state) => {
-    console.log('Connection state:', state);
-  });
-  
-  return client;
-}
-
-// Initialize
-const client = await initializeChat();
-```
-
-## TypeScript Support
-
-The SDK includes full TypeScript definitions:
-
-```typescript
-import { ChatAfrika, Message, Conversation } from '@chatafrika/sdk';
-
-const client: ChatAfrika = new ChatAfrika({ /* config */ });
-const message: Message = await client.messages.send({ /* ... */ });
-```
-
-## Browser vs Node.js
-
-### Browser
-
-Works out of the box - uses native WebSocket API.
-
-### Node.js
-
-Install `ws` package:
+### Step 1: Login to get access token
 
 ```bash
-npm install ws
+curl -X POST https://api.chaterafrika.com/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "your-email@example.com",
+    "password": "your-password"
+  }'
 ```
 
+### Step 2: Exchange for SDK token
+
+```bash
+curl -X POST https://api.chaterafrika.com/api/v1/auth/sdk-token \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_id": "your-app-id"
+  }'
+```
+
+Response:
+```json
+{
+  "sdk_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+## Verifying Installation
+
 ```typescript
-import WebSocket from 'ws';
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika, ConnectionState } from '@chatafrika/sdk';
 
 const client = new ChatAfrika({
-  apiUrl: 'https://api.chaterafrika.com',
   wsUrl: 'wss://ws.dev.chaterafrika.com',
-  sdkToken: token,
-  wsImplementation: WebSocket // For Node.js
+  token: 'your-sdk-token'
 });
+
+// Listen for connection state
+client.on('connected', () => {
+  console.log('✅ SDK connected successfully!');
+  console.log('State:', client.getState()); // ConnectionState.CONNECTED
+});
+
+client.on('error', (error) => {
+  console.error('❌ Connection error:', error);
+});
+
+// Connect
+try {
+  await client.connect();
+} catch (error) {
+  console.error('Failed to connect:', error);
+}
+```
+
+## Framework Integration
+
+### React
+
+```tsx
+import { useEffect, useState } from 'react';
+import { ChatAfrika, ConnectionState } from '@chatafrika/sdk';
+
+function useChatAfrika(token: string) {
+  const [client, setClient] = useState<ChatAfrika | null>(null);
+  const [state, setState] = useState<ConnectionState>(ConnectionState.DISCONNECTED);
+
+  useEffect(() => {
+    const chatClient = new ChatAfrika({
+      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      token,
+      debug: true
+    });
+
+    chatClient.on('state', setState);
+    chatClient.connect();
+
+    setClient(chatClient);
+
+    return () => {
+      chatClient.disconnect();
+    };
+  }, [token]);
+
+  return { client, state };
+}
+
+// Usage
+function ChatComponent({ token }) {
+  const { client, state } = useChatAfrika(token);
+
+  if (state !== ConnectionState.CONNECTED) {
+    return <div>Connecting...</div>;
+  }
+
+  return <div>Connected!</div>;
+}
+```
+
+### Vue 3
+
+```vue
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue';
+import { ChatAfrika, ConnectionState } from '@chatafrika/sdk';
+
+const props = defineProps<{ token: string }>();
+
+const client = ref<ChatAfrika | null>(null);
+const state = ref<ConnectionState>(ConnectionState.DISCONNECTED);
+
+onMounted(async () => {
+  client.value = new ChatAfrika({
+    wsUrl: 'wss://ws.dev.chaterafrika.com',
+    token: props.token,
+    debug: true
+  });
+
+  client.value.on('state', (newState) => {
+    state.value = newState;
+  });
+
+  await client.value.connect();
+});
+
+onUnmounted(() => {
+  client.value?.disconnect();
+});
+</script>
+
+<template>
+  <div v-if="state === ConnectionState.CONNECTED">Connected!</div>
+  <div v-else>Connecting...</div>
+</template>
 ```
 
 ## Next Steps
 
 <CardGroup cols={2}>
   <Card title="Authentication" icon="key" href="/sdk/authentication">
-    SDK authentication guide
+    SDK authentication flow
   </Card>
-  <Card title="Quick Start" icon="rocket" href="/quickstart">
-    Quick start guide
+  <Card title="Conversations" icon="comments" href="/sdk/conversations">
+    Join and manage conversations
   </Card>
-  <Card title="API Reference" icon="book" href="/sdk/overview">
-    Complete SDK reference
+  <Card title="Messaging" icon="message" href="/sdk/messaging">
+    Send and receive messages
   </Card>
   <Card title="Examples" icon="code" href="/sdk/examples">
-    Code examples
+    Complete code examples
   </Card>
 </CardGroup>
-

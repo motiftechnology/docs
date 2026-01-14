@@ -1,0 +1,228 @@
+---
+title: "WebSocket Authentication"
+description: "Authentication for ChaterAfrika WebSocket connections"
+---
+
+## Overview
+
+WebSocket connections require an SDK token for authentication. The token is validated on connection and contains user and tenant context.
+
+## Connection with Token
+
+### Using Authorization Header
+
+```javascript
+const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', {
+  headers: {
+    'Authorization': `Bearer ${sdkToken}`
+  }
+});
+```
+
+### Using Sec-WebSocket-Protocol
+
+For browsers that don't support custom headers:
+
+```javascript
+const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', [sdkToken]);
+```
+
+### Using Query Parameter
+
+```javascript
+const ws = new WebSocket(`wss://ws.dev.chaterafrika.com/ws?token=${sdkToken}`);
+```
+
+## Token Validation
+
+The server validates:
+
+1. **Token signature** - Valid JWT signature
+2. **Token expiration** - Not expired (15 min lifetime)
+3. **Token type** - Must be `sdk` type
+4. **Tenant context** - Valid tenant_id claim
+
+## Token Claims
+
+```json
+{
+  "sub": "user-uuid",          // User ID
+  "tenant_id": "tenant-uuid",  // Tenant ID
+  "app_id": "app-uuid",        // App ID
+  "type": "sdk",               // Token type (must be 'sdk')
+  "exp": 1234567890,           // Expiration timestamp
+  "iat": 1234567890            // Issued at timestamp
+}
+```
+
+## Authentication Flow
+
+```
+1. User authenticates with REST API → Get access token
+2. Exchange access token for SDK token → Get SDK token (15 min)
+3. Connect to WebSocket with SDK token
+4. Server validates token → Connection established
+5. Token expires → Reconnect with new token
+```
+
+## Getting an SDK Token
+
+### Step 1: Login
+
+```bash
+curl -X POST https://api.chaterafrika.com/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "password"
+  }'
+```
+
+### Step 2: Exchange for SDK Token
+
+```bash
+curl -X POST https://api.chaterafrika.com/api/v1/auth/sdk-token \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_id": "your-app-id"
+  }'
+```
+
+## Error Handling
+
+### Invalid Token
+
+```json
+{
+  "type": "error",
+  "error": "Invalid token"
+}
+```
+
+Connection will be closed with code `1008` (Policy Violation).
+
+### Expired Token
+
+```json
+{
+  "type": "error",
+  "error": "Token expired"
+}
+```
+
+Connection will be closed. Reconnect with a new token.
+
+## Token Refresh Strategy
+
+Since SDK tokens expire after 15 minutes, implement token refresh:
+
+```javascript
+class WebSocketManager {
+  private ws: WebSocket | null = null;
+  private refreshTimer: NodeJS.Timeout | null = null;
+
+  async connect(token: string) {
+    this.ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    this.ws.onopen = () => {
+      // Schedule token refresh 1 minute before expiry
+      this.scheduleRefresh(14 * 60 * 1000);
+    };
+
+    this.ws.onclose = (event) => {
+      if (event.code === 1008) {
+        // Token invalid/expired, get new token and reconnect
+        this.handleTokenExpired();
+      }
+    };
+  }
+
+  private scheduleRefresh(delay: number) {
+    this.refreshTimer = setTimeout(async () => {
+      const newToken = await this.fetchNewToken();
+      await this.reconnect(newToken);
+    }, delay);
+  }
+
+  private async handleTokenExpired() {
+    const newToken = await this.fetchNewToken();
+    await this.connect(newToken);
+  }
+
+  private async fetchNewToken(): Promise<string> {
+    // Call your backend to get a new SDK token
+    const response = await fetch('/api/sdk-token');
+    const { sdk_token } = await response.json();
+    return sdk_token;
+  }
+
+  private async reconnect(token: string) {
+    if (this.ws) {
+      this.ws.close();
+    }
+    await this.connect(token);
+  }
+}
+```
+
+## Using the SDK
+
+The SDK handles authentication automatically:
+
+```typescript
+import { ChatAfrika } from '@chatafrika/sdk';
+
+const client = new ChatAfrika({
+  wsUrl: 'wss://ws.dev.chaterafrika.com',
+  token: sdkToken
+});
+
+// SDK handles the connection with proper authentication
+await client.connect();
+
+// Handle token expiration
+client.on('error', async (error) => {
+  if (error.message.includes('Token expired')) {
+    const newToken = await fetchNewToken();
+    client.updateToken(newToken);
+    await client.connect();
+  }
+});
+```
+
+## Security Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Short Token Lifetime" icon="clock">
+    SDK tokens expire in 15 minutes for security.
+  </Card>
+  <Card title="Use HTTPS/WSS" icon="lock">
+    Always use secure connections.
+  </Card>
+  <Card title="Server-side Exchange" icon="server">
+    Exchange tokens on your backend, not client-side.
+  </Card>
+  <Card title="Don't Log Tokens" icon="eye-slash">
+    Never log tokens in production.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Message Types" icon="list" href="/websocket/message-types">
+    WebSocket message types
+  </Card>
+  <Card title="Rooms" icon="door-open" href="/websocket/rooms">
+    Room management
+  </Card>
+  <Card title="SDK Auth" icon="key" href="/sdk/authentication">
+    SDK authentication
+  </Card>
+  <Card title="REST Auth" icon="terminal" href="/guides/authentication">
+    REST API authentication
+  </Card>
+</CardGroup>

@@ -1,0 +1,550 @@
+---
+title: "SDK Examples"
+description: "Complete code examples for the ChaterAfrika SDK"
+---
+
+## Basic Chat Application
+
+A complete example of a basic chat application:
+
+```typescript
+import { ChatAfrika, Conversation, Message } from '@chatafrika/sdk';
+
+class ChatApp {
+  private client: ChatAfrika;
+  private conversations: Map<string, Conversation> = new Map();
+
+  async initialize(token: string) {
+    this.client = new ChatAfrika({
+      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      token,
+      debug: true
+    });
+
+    // Connection events
+    this.client.on('connected', () => console.log('✅ Connected'));
+    this.client.on('disconnected', () => console.log('❌ Disconnected'));
+    this.client.on('error', (err) => console.error('Error:', err));
+
+    // Global presence
+    this.client.on('presence', (event) => {
+      console.log(`👤 ${event.userId} is ${event.state}`);
+    });
+
+    await this.client.connect();
+    console.log('Chat app initialized');
+  }
+
+  async joinConversation(conversationId: string) {
+    await this.client.conversations.join(conversationId);
+    const conversation = this.client.conversations.get(conversationId);
+    this.conversations.set(conversationId, conversation);
+
+    // Message handler
+    conversation.on('message', (message) => {
+      this.displayMessage(conversationId, message);
+    });
+
+    // Typing handler
+    conversation.on('typing', (event) => {
+      if (event.state === 'start') {
+        console.log(`💬 ${event.userId} is typing...`);
+      }
+    });
+
+    // Receipt handler
+    conversation.on('receipt', (event) => {
+      console.log(`✓ Message ${event.messageId}: ${event.state}`);
+    });
+
+    console.log(`Joined conversation: ${conversationId}`);
+    return conversation;
+  }
+
+  sendMessage(conversationId: string, content: string) {
+    const conversation = this.conversations.get(conversationId);
+    if (!conversation) {
+      throw new Error('Not in conversation');
+    }
+    conversation.stopTyping();
+    conversation.sendMessage(content);
+  }
+
+  startTyping(conversationId: string) {
+    const conversation = this.conversations.get(conversationId);
+    conversation?.startTyping();
+  }
+
+  private displayMessage(conversationId: string, message: Message) {
+    const status = message.isOptimistic ? '⏳' : '✓';
+    console.log(`[${conversationId}] ${status} ${message.senderId}: ${message.content}`);
+  }
+
+  async disconnect() {
+    for (const [id] of this.conversations) {
+      await this.client.conversations.leave(id);
+    }
+    await this.client.disconnect();
+    console.log('Disconnected');
+  }
+}
+
+// Usage
+const app = new ChatApp();
+await app.initialize('your-sdk-token');
+await app.joinConversation('conv-123');
+app.sendMessage('conv-123', 'Hello, world!');
+```
+
+## React Chat Component
+
+```tsx
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { ChatAfrika, Conversation, Message, ConnectionState } from '@chatafrika/sdk';
+
+// Hook for SDK connection
+function useChatAfrika(token: string) {
+  const [client, setClient] = useState<ChatAfrika | null>(null);
+  const [connectionState, setConnectionState] = useState<ConnectionState>(
+    ConnectionState.DISCONNECTED
+  );
+
+  useEffect(() => {
+    const chatClient = new ChatAfrika({
+      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      token,
+      debug: true
+    });
+
+    chatClient.on('state', setConnectionState);
+    chatClient.connect().then(() => setClient(chatClient));
+
+    return () => {
+      chatClient.disconnect();
+    };
+  }, [token]);
+
+  return { client, connectionState };
+}
+
+// Hook for conversation
+function useConversation(client: ChatAfrika | null, conversationId: string) {
+  const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!client) return;
+
+    let conv: Conversation;
+
+    async function setup() {
+      await client.conversations.join(conversationId);
+      conv = client.conversations.get(conversationId);
+      setConversation(conv);
+
+      conv.on('message', (message) => {
+        setMessages(prev => {
+          const exists = prev.find(m => m.id === message.id);
+          if (exists) {
+            return prev.map(m => m.id === message.id ? message : m);
+          }
+          return [...prev, message];
+        });
+      });
+
+      conv.on('typing', (event) => {
+        setTypingUsers(prev => {
+          if (event.state === 'start') {
+            return prev.includes(event.userId) ? prev : [...prev, event.userId];
+          }
+          return prev.filter(id => id !== event.userId);
+        });
+      });
+    }
+
+    setup();
+
+    return () => {
+      client.conversations.leave(conversationId);
+    };
+  }, [client, conversationId]);
+
+  return { conversation, messages, typingUsers };
+}
+
+// Chat component
+function Chat({ token, conversationId }: { token: string; conversationId: string }) {
+  const { client, connectionState } = useChatAfrika(token);
+  const { conversation, messages, typingUsers } = useConversation(client, conversationId);
+  const [input, setInput] = useState('');
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+
+    // Handle typing indicator
+    conversation?.startTyping();
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    typingTimeoutRef.current = setTimeout(() => {
+      conversation?.stopTyping();
+    }, 2000);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || !conversation) return;
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    conversation.stopTyping();
+    conversation.sendMessage(input);
+    setInput('');
+  };
+
+  if (connectionState !== ConnectionState.CONNECTED) {
+    return <div>Connecting...</div>;
+  }
+
+  return (
+    <div className="chat-container">
+      <div className="messages">
+        {messages.map(msg => (
+          <div
+            key={msg.id}
+            className={`message ${msg.isOptimistic ? 'pending' : 'sent'}`}
+          >
+            <strong>{msg.senderId}:</strong> {msg.content}
+            <span className="status">
+              {msg.isOptimistic ? '⏳' : msg.receiptState === 'read' ? '✓✓' : '✓'}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {typingUsers.length > 0 && (
+        <div className="typing-indicator">
+          {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit}>
+        <input
+          value={input}
+          onChange={handleInputChange}
+          placeholder="Type a message..."
+        />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  );
+}
+
+export default Chat;
+```
+
+## Node.js CLI Chat
+
+```typescript
+import { ChatAfrika } from '@chatafrika/sdk';
+import * as readline from 'readline';
+
+async function main() {
+  const client = new ChatAfrika({
+    wsUrl: 'wss://ws.dev.chaterafrika.com',
+    token: process.env.SDK_TOKEN!,
+    debug: false
+  });
+
+  const conversationId = process.env.CONVERSATION_ID!;
+
+  client.on('connected', () => console.log('Connected!'));
+  client.on('error', (err) => console.error('Error:', err.message));
+
+  await client.connect();
+  await client.conversations.join(conversationId);
+
+  const conversation = client.conversations.get(conversationId);
+
+  // Display incoming messages
+  conversation.on('message', (msg) => {
+    if (!msg.isOptimistic) { // Don't double-print our own messages
+      console.log(`\n${msg.senderId}: ${msg.content}`);
+      rl.prompt();
+    }
+  });
+
+  conversation.on('typing', (event) => {
+    if (event.state === 'start') {
+      console.log(`\n${event.userId} is typing...`);
+      rl.prompt();
+    }
+  });
+
+  // CLI interface
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  rl.setPrompt('You: ');
+  rl.prompt();
+
+  rl.on('line', (line) => {
+    const content = line.trim();
+    if (content) {
+      conversation.sendMessage(content);
+    }
+    rl.prompt();
+  });
+
+  rl.on('close', async () => {
+    await client.disconnect();
+    process.exit(0);
+  });
+}
+
+main().catch(console.error);
+```
+
+## Support Chat Widget
+
+```typescript
+import { ChatAfrika, SupportSession } from '@chatafrika/sdk';
+
+class SupportWidget {
+  private client: ChatAfrika;
+  private conversationId: string;
+  private container: HTMLElement;
+
+  constructor(containerId: string) {
+    this.container = document.getElementById(containerId)!;
+  }
+
+  async initialize(token: string, conversationId: string) {
+    this.conversationId = conversationId;
+
+    this.client = new ChatAfrika({
+      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      token
+    });
+
+    await this.client.connect();
+    await this.client.conversations.join(conversationId);
+
+    const conversation = this.client.conversations.get(conversationId);
+    const support = this.client.support.get(conversationId, 'customer');
+
+    this.render();
+    this.setupEventHandlers(conversation, support);
+    this.updateStatus(support.getStatus());
+  }
+
+  private render() {
+    this.container.innerHTML = `
+      <div class="support-widget">
+        <div class="status-bar" id="status"></div>
+        <div class="messages" id="messages"></div>
+        <div class="typing" id="typing"></div>
+        <form id="chat-form">
+          <input type="text" id="input" placeholder="Type a message..." />
+          <button type="submit">Send</button>
+        </form>
+      </div>
+    `;
+
+    const form = this.container.querySelector('#chat-form') as HTMLFormElement;
+    const input = this.container.querySelector('#input') as HTMLInputElement;
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (input.value.trim()) {
+        const conversation = this.client.conversations.get(this.conversationId);
+        conversation.sendMessage(input.value);
+        input.value = '';
+      }
+    });
+  }
+
+  private setupEventHandlers(conversation: any, support: SupportSession) {
+    conversation.on('message', (msg: any) => {
+      this.addMessage(msg);
+    });
+
+    conversation.on('typing', (event: any) => {
+      const typing = this.container.querySelector('#typing')!;
+      typing.textContent = event.state === 'start' ? 'Agent is typing...' : '';
+    });
+
+    support.on('assigned', (event: any) => {
+      this.updateStatus('assigned');
+      this.addSystemMessage(`You're now connected with ${event.agentName}`);
+    });
+
+    support.on('bot_takeover', () => {
+      this.updateStatus('bot');
+      this.addSystemMessage('AI assistant is now helping you');
+    });
+
+    support.on('closed', () => {
+      this.updateStatus('closed');
+      this.addSystemMessage('Session ended');
+    });
+  }
+
+  private updateStatus(status: string) {
+    const statusEl = this.container.querySelector('#status')!;
+    const statusMap: Record<string, string> = {
+      bot: '🤖 AI Assistant',
+      queued: '⏳ Waiting for agent...',
+      assigned: '👤 Connected with agent',
+      closed: '✅ Session closed'
+    };
+    statusEl.textContent = statusMap[status] || status;
+  }
+
+  private addMessage(msg: any) {
+    const messages = this.container.querySelector('#messages')!;
+    const div = document.createElement('div');
+    div.className = `message ${msg.senderType}`;
+    div.innerHTML = `<strong>${msg.senderType}:</strong> ${msg.content}`;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  private addSystemMessage(text: string) {
+    const messages = this.container.querySelector('#messages')!;
+    const div = document.createElement('div');
+    div.className = 'message system';
+    div.textContent = text;
+    messages.appendChild(div);
+  }
+}
+
+// Usage
+const widget = new SupportWidget('chat-container');
+widget.initialize('sdk-token', 'conversation-id');
+```
+
+## Multi-Conversation Manager
+
+```typescript
+import { ChatAfrika, Conversation, Message } from '@chatafrika/sdk';
+
+class MultiChatManager {
+  private client: ChatAfrika;
+  private conversations: Map<string, {
+    conversation: Conversation;
+    messages: Message[];
+    unreadCount: number;
+  }> = new Map();
+
+  private activeConversationId: string | null = null;
+  private onUpdate: (conversationId: string) => void;
+
+  constructor(onUpdate: (conversationId: string) => void) {
+    this.onUpdate = onUpdate;
+  }
+
+  async initialize(token: string) {
+    this.client = new ChatAfrika({
+      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      token
+    });
+
+    await this.client.connect();
+  }
+
+  async addConversation(conversationId: string) {
+    if (this.conversations.has(conversationId)) return;
+
+    await this.client.conversations.join(conversationId);
+    const conversation = this.client.conversations.get(conversationId);
+
+    const state = {
+      conversation,
+      messages: [] as Message[],
+      unreadCount: 0
+    };
+
+    conversation.on('message', (message) => {
+      state.messages.push(message);
+      
+      // Increment unread if not active conversation
+      if (this.activeConversationId !== conversationId) {
+        state.unreadCount++;
+      }
+      
+      this.onUpdate(conversationId);
+    });
+
+    this.conversations.set(conversationId, state);
+    return conversation;
+  }
+
+  setActiveConversation(conversationId: string) {
+    this.activeConversationId = conversationId;
+    const state = this.conversations.get(conversationId);
+    if (state) {
+      state.unreadCount = 0;
+      this.onUpdate(conversationId);
+    }
+  }
+
+  sendMessage(conversationId: string, content: string) {
+    const state = this.conversations.get(conversationId);
+    if (state) {
+      state.conversation.sendMessage(content);
+    }
+  }
+
+  getMessages(conversationId: string): Message[] {
+    return this.conversations.get(conversationId)?.messages || [];
+  }
+
+  getUnreadCount(conversationId: string): number {
+    return this.conversations.get(conversationId)?.unreadCount || 0;
+  }
+
+  getTotalUnreadCount(): number {
+    let total = 0;
+    for (const state of this.conversations.values()) {
+      total += state.unreadCount;
+    }
+    return total;
+  }
+}
+
+// Usage
+const manager = new MultiChatManager((convId) => {
+  console.log(`Conversation ${convId} updated`);
+});
+
+await manager.initialize('sdk-token');
+await manager.addConversation('conv-1');
+await manager.addConversation('conv-2');
+
+manager.setActiveConversation('conv-1');
+manager.sendMessage('conv-1', 'Hello!');
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="SDK Overview" icon="book" href="/sdk/overview">
+    SDK introduction
+  </Card>
+  <Card title="Conversations" icon="comments" href="/sdk/conversations">
+    Conversation management
+  </Card>
+  <Card title="Messaging" icon="message" href="/sdk/messaging">
+    Sending messages
+  </Card>
+  <Card title="Support" icon="headset" href="/sdk/support">
+    Support sessions
+  </Card>
+</CardGroup>

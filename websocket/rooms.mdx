@@ -1,0 +1,305 @@
+---
+title: "WebSocket Rooms"
+description: "Room management for ChaterAfrika WebSocket connections"
+---
+
+## Overview
+
+Rooms are conversation-scoped channels for message delivery. Users must join a room to receive messages for that conversation.
+
+## Room Concept
+
+- Each conversation has a corresponding room
+- Users must explicitly join rooms to receive messages
+- Leaving a room stops message delivery for that conversation
+- Users can be in multiple rooms simultaneously
+
+## Joining a Room
+
+Send a `join` message to join a conversation room:
+
+```json
+{
+  "type": "join",
+  "conversation_id": "conversation-uuid"
+}
+```
+
+### Response
+
+On success:
+```json
+{
+  "type": "joined",
+  "payload": {
+    "conversation_id": "conversation-uuid"
+  }
+}
+```
+
+On error:
+```json
+{
+  "type": "error",
+  "error": "conversation_id is required"
+}
+```
+
+## Leaving a Room
+
+Send a `leave` message to leave a room:
+
+```json
+{
+  "type": "leave",
+  "conversation_id": "conversation-uuid"
+}
+```
+
+### Response
+
+```json
+{
+  "type": "left",
+  "payload": {
+    "conversation_id": "conversation-uuid"
+  }
+}
+```
+
+## Room Membership
+
+### Automatic Behavior
+
+- **Join**: User is added to the room and receives all messages
+- **Leave**: User is removed and stops receiving messages
+- **Disconnect**: User is automatically removed from all rooms
+
+### Message Routing
+
+When a message is sent to a conversation, it's delivered to:
+1. All users currently in that room
+2. Including the sender (echo)
+
+## Multiple Rooms
+
+Users can join multiple rooms simultaneously:
+
+```javascript
+// Join multiple conversations
+ws.send(JSON.stringify({ type: 'join', conversation_id: 'conv-1' }));
+ws.send(JSON.stringify({ type: 'join', conversation_id: 'conv-2' }));
+ws.send(JSON.stringify({ type: 'join', conversation_id: 'conv-3' }));
+
+// Messages from all rooms will be received
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  if (msg.type === 'message') {
+    console.log(`[${msg.conversation_id}] ${msg.payload.content}`);
+  }
+};
+```
+
+## Room Events
+
+### Joining
+
+```javascript
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  
+  if (msg.type === 'joined') {
+    console.log('Joined room:', msg.payload.conversation_id);
+    // Can now send messages to this room
+  }
+};
+```
+
+### Leaving
+
+```javascript
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  
+  if (msg.type === 'left') {
+    console.log('Left room:', msg.payload.conversation_id);
+    // No longer receiving messages from this room
+  }
+};
+```
+
+## Sending to a Room
+
+Once joined, send messages by specifying the `conversation_id`:
+
+```json
+{
+  "type": "message",
+  "conversation_id": "conversation-uuid",
+  "payload": {
+    "message_id": "generated-uuid",
+    "content": "Hello, room!",
+    "message_type": "text"
+  }
+}
+```
+
+## Room-Scoped Features
+
+All real-time features are room-scoped:
+
+### Typing Indicators
+
+```json
+{
+  "type": "typing_start",
+  "conversation_id": "conversation-uuid"
+}
+```
+
+Only users in the room receive typing indicators.
+
+### Read Receipts
+
+```json
+{
+  "type": "read",
+  "conversation_id": "conversation-uuid",
+  "message_id": "message-uuid"
+}
+```
+
+## Room State Management
+
+The server maintains room state:
+
+- Which users are in which rooms
+- When users join/leave
+- Message routing based on membership
+
+### Redis-Based State
+
+For multi-node deployments:
+- Room membership stored in Redis
+- Messages broadcast via Redis Pub/Sub
+- Consistent state across all nodes
+
+## Complete Example
+
+```javascript
+class RoomManager {
+  constructor(ws) {
+    this.ws = ws;
+    this.rooms = new Set();
+    
+    this.ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      this.handleMessage(msg);
+    };
+  }
+  
+  join(conversationId) {
+    this.ws.send(JSON.stringify({
+      type: 'join',
+      conversation_id: conversationId
+    }));
+  }
+  
+  leave(conversationId) {
+    this.ws.send(JSON.stringify({
+      type: 'leave',
+      conversation_id: conversationId
+    }));
+  }
+  
+  sendMessage(conversationId, content) {
+    if (!this.rooms.has(conversationId)) {
+      throw new Error('Not in room');
+    }
+    
+    this.ws.send(JSON.stringify({
+      type: 'message',
+      conversation_id: conversationId,
+      payload: {
+        message_id: crypto.randomUUID(),
+        content,
+        message_type: 'text'
+      }
+    }));
+  }
+  
+  handleMessage(msg) {
+    switch (msg.type) {
+      case 'joined':
+        this.rooms.add(msg.payload.conversation_id);
+        console.log('Joined:', msg.payload.conversation_id);
+        break;
+        
+      case 'left':
+        this.rooms.delete(msg.payload.conversation_id);
+        console.log('Left:', msg.payload.conversation_id);
+        break;
+        
+      case 'message':
+        console.log(`[${msg.conversation_id}] ${msg.payload.content}`);
+        break;
+    }
+  }
+  
+  isInRoom(conversationId) {
+    return this.rooms.has(conversationId);
+  }
+}
+
+// Usage
+const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', {
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+
+ws.onopen = () => {
+  const manager = new RoomManager(ws);
+  
+  manager.join('conv-1');
+  manager.join('conv-2');
+  
+  // After joined events are received
+  setTimeout(() => {
+    manager.sendMessage('conv-1', 'Hello room 1!');
+    manager.sendMessage('conv-2', 'Hello room 2!');
+  }, 1000);
+};
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Join Before Send" icon="door-open">
+    Always wait for `joined` event before sending messages.
+  </Card>
+  <Card title="Clean Up" icon="broom">
+    Leave rooms when no longer needed to reduce memory usage.
+  </Card>
+  <Card title="Track Membership" icon="list">
+    Maintain local state of which rooms you're in.
+  </Card>
+  <Card title="Handle Errors" icon="exclamation-triangle">
+    Check for error responses on join/leave.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Message Types" icon="list" href="/websocket/message-types">
+    All message types
+  </Card>
+  <Card title="Messaging" icon="message" href="/websocket/messaging">
+    Real-time messaging
+  </Card>
+  <Card title="Typing" icon="keyboard" href="/websocket/typing">
+    Typing indicators
+  </Card>
+  <Card title="SDK" icon="code" href="/sdk/conversations">
+    SDK conversation management
+  </Card>
+</CardGroup>

@@ -7,6 +7,16 @@ description: "Complete guide to the ChaterAfrika JavaScript SDK"
 
 The ChaterAfrika JavaScript SDK is a headless SDK for integrating real-time chat, messaging, presence, and support features into your applications.
 
+<Warning>
+**Messages are sent exclusively over WebSockets.**
+
+This guarantees ordering, real-time delivery, typing indicators, presence, and receipts.
+
+Use `client.conversations.get(conversationId).sendMessage(content)` to send messages.
+
+REST APIs are used for history, analytics, and internal automation only.
+</Warning>
+
 ## Installation
 
 ```bash
@@ -20,43 +30,43 @@ import { ChatAfrika } from '@chatafrika/sdk';
 
 // Initialize SDK
 const client = new ChatAfrika({
-  apiUrl: 'https://api.chaterafrika.com',
   wsUrl: 'wss://ws.dev.chaterafrika.com',
-  sdkToken: 'your-sdk-token'
+  token: 'your-sdk-token',
+  debug: true
 });
 
-// Connect
+// Connect to WebSocket
 await client.connect();
 
-// Join conversation
+// Join a conversation
 await client.conversations.join('conversation-id');
 
-// Send message
-await client.messages.send({
-  conversationId: 'conversation-id',
-  content: 'Hello, world!'
-});
+// Get the conversation instance
+const conversation = client.conversations.get('conversation-id');
 
 // Listen for messages
-client.messages.on('message', (message) => {
+conversation.on('message', (message) => {
   console.log('New message:', message.content);
 });
+
+// Send a message
+conversation.sendMessage('Hello, world!');
 ```
 
 ## Core Features
 
 ### ✅ Real-time Messaging
 
-- Send and receive messages instantly
-- Optimistic message updates
-- Automatic message reconciliation
+- Send and receive messages instantly via WebSocket
+- Optimistic message updates (instant UI feedback)
+- Automatic message reconciliation with server
 - Message deduplication
 
 ### ✅ Presence Management
 
 - Track user online/offline status
 - Real-time presence updates
-- Automatic presence tracking
+- SDK-global presence tracking
 
 ### ✅ Typing Indicators
 
@@ -88,91 +98,143 @@ client.messages.on('message', (message) => {
 
 ```
 ChatAfrika (Main Client)
-├── Conversations Manager
-│   ├── Join/Leave rooms
-│   └── Conversation state
-├── Message Manager
-│   ├── Send messages
-│   ├── Receive messages
-│   ├── Optimistic updates
-│   └── Deduplication
-├── Presence Manager
-│   ├── Update status
-│   └── Track others' status
-├── Typing Manager
-│   ├── Start/Stop typing
-│   └── Receive typing events
-├── Receipt Manager
-│   ├── Mark as read
-│   └── Track receipts
-└── Support Manager
-    ├── Support sessions
-    └── Agent assignment
+├── conversations
+│   ├── get(id) → Conversation
+│   ├── has(id) → boolean
+│   ├── join(id) → Promise
+│   └── leave(id) → Promise
+├── support
+│   ├── get(id, role?) → SupportSession
+│   └── has(id) → boolean
+└── Events: connected, disconnected, error, presence
+
+Conversation
+├── id: string
+├── isJoined: boolean
+├── sendMessage(content, type?, metadata?)
+├── startTyping()
+├── stopTyping()
+└── Events: message, typing, receipt, presence, joined, left
 ```
 
 ## Configuration
 
 ```typescript
 interface ClientConfig {
-  apiUrl: string;           // Backend API URL
-  wsUrl: string;            // WebSocket URL
-  sdkToken: string;         // SDK token
-  debug?: boolean;          // Enable debug logging
-  reconnectDelay?: number;  // Reconnection delay (ms)
-  maxReconnectDelay?: number; // Max reconnection delay (ms)
+  wsUrl: string;              // WebSocket URL (required)
+  token: string;              // SDK token (required)
+  apiUrl?: string;            // Backend API URL (optional)
+  debug?: boolean;            // Enable debug logging
+  autoReconnect?: boolean;    // Auto-reconnect on disconnect (default: true)
+  maxReconnectAttempts?: number; // Max reconnect attempts (default: 5)
+  reconnectDelay?: number;    // Reconnect delay in ms (default: 1000)
 }
 ```
 
-## Event-Driven Architecture
+## API Reference
 
-The SDK uses EventEmitter for all events:
+### ChatAfrika Client
 
 ```typescript
-// Listen to connection state
-client.on('connection_state', (state) => {
-  console.log('Connection state:', state);
+import { ChatAfrika } from '@chatafrika/sdk';
+
+const client = new ChatAfrika({
+  wsUrl: 'wss://ws.dev.chaterafrika.com',
+  token: 'your-sdk-token'
 });
 
-// Listen to messages
-client.messages.on('message', (message) => {
-  console.log('Message:', message);
+// Connection
+await client.connect();
+await client.disconnect();
+client.isConnected(); // boolean
+client.getState(); // ConnectionState
+
+// Token management
+client.updateToken(newToken);
+
+// Events
+client.on('connected', () => { /* ... */ });
+client.on('disconnected', (data) => { /* ... */ });
+client.on('error', (error) => { /* ... */ });
+client.on('presence', (event) => { /* ... */ });
+```
+
+### Conversations
+
+```typescript
+// Join a conversation
+await client.conversations.join('conversation-id');
+
+// Get conversation instance
+const conversation = client.conversations.get('conversation-id');
+
+// Check if exists
+client.conversations.has('conversation-id'); // boolean
+
+// Leave conversation
+await client.conversations.leave('conversation-id');
+```
+
+### Conversation Instance
+
+```typescript
+const conversation = client.conversations.get('conversation-id');
+
+// Properties
+conversation.id;        // string
+conversation.isJoined;  // boolean
+
+// Send message
+conversation.sendMessage('Hello!');
+conversation.sendMessage('Hello!', 'text', { customField: 'value' });
+
+// Typing indicators
+conversation.startTyping();
+conversation.stopTyping();
+
+// Events
+conversation.on('message', (message) => {
+  console.log(message.id, message.content, message.senderId);
 });
 
-// Listen to presence
-client.presence.on('update', (update) => {
-  console.log('Presence:', update);
+conversation.on('typing', (event) => {
+  console.log(event.userId, event.state); // 'start' | 'stop'
 });
 
-// Listen to typing
-client.typing.on('typing', (event) => {
-  console.log('Typing:', event);
+conversation.on('receipt', (event) => {
+  console.log(event.messageId, event.state); // 'delivered' | 'read'
 });
 
-// Listen to receipts
-client.receipts.on('receipt', (receipt) => {
-  console.log('Receipt:', receipt);
-});
+conversation.on('joined', () => { /* ... */ });
+conversation.on('left', () => { /* ... */ });
+```
+
+### Support Sessions
+
+```typescript
+// Get support session for a conversation
+const support = client.support.get('conversation-id', 'customer');
+
+// Check if exists
+client.support.has('conversation-id'); // boolean
 ```
 
 ## Message Lifecycle
 
-1. **Send Message** → Optimistic message created
-2. **Server Confirms** → Message reconciled
+1. **Send Message** → Optimistic message created instantly
+2. **Server Confirms** → Message reconciled with server data
 3. **Delivered** → Delivery receipt received
 4. **Read** → Read receipt received
 
 ```typescript
-const message = await client.messages.send({
-  conversationId: 'conv-id',
-  content: 'Hello!'
-});
+const conversation = client.conversations.get('conv-id');
 
-// Message starts as optimistic
-console.log(message.receiptState); // 'sent'
+// Send message (optimistic update happens immediately)
+conversation.sendMessage('Hello!');
 
 // Listen for receipt updates
-message.on('receipt', (receipt) => {
-  console.log('Receipt state:', receipt.state);
+conversation.on('receipt', (event) => {
+  console.log(`Message ${event.messageId}: ${event.state}`);
   // 'delivered' or 'read'
 });
 ```
@@ -182,17 +244,20 @@ message.on('receipt', (receipt) => {
 ```typescript
 // Connection errors
 client.on('error', (error) => {
-  console.error('SDK error:', error);
+  console.error('SDK error:', error.message);
 });
 
-// Message send errors
+// Conversation errors
+const conversation = client.conversations.get('conv-id');
+conversation.on('error', (error) => {
+  console.error('Conversation error:', error.message);
+});
+
+// Try-catch for async operations
 try {
-  await client.messages.send({
-    conversationId: 'conv-id',
-    content: 'Hello!'
-  });
+  await client.connect();
 } catch (error) {
-  console.error('Send failed:', error);
+  console.error('Connection failed:', error);
 }
 ```
 
@@ -201,35 +266,72 @@ try {
 The SDK is written in TypeScript and includes full type definitions:
 
 ```typescript
-import { ChatAfrika, Message, Conversation } from '@chatafrika/sdk';
+import { 
+  ChatAfrika, 
+  Conversation,
+  Message,
+  ConnectionState 
+} from '@chatafrika/sdk';
 
 const client: ChatAfrika = new ChatAfrika({ /* config */ });
-const message: Message = await client.messages.send({ /* ... */ });
+const conversation: Conversation = client.conversations.get('id');
 ```
 
-## Browser Support
-
-- Chrome/Edge (latest)
-- Firefox (latest)
-- Safari (latest)
-- Mobile browsers (iOS Safari, Chrome Mobile)
-
-## Node.js Support
-
-The SDK works in Node.js environments:
+## Complete Example
 
 ```typescript
 import { ChatAfrika } from '@chatafrika/sdk';
-import WebSocket from 'ws';
 
-// Use ws library for Node.js
-const client = new ChatAfrika({
-  apiUrl: 'https://api.chaterafrika.com',
-  wsUrl: 'wss://ws.dev.chaterafrika.com',
-  sdkToken: 'token',
-  // WebSocket implementation for Node.js
-  wsImplementation: WebSocket
-});
+async function initializeChat() {
+  // Initialize SDK
+  const client = new ChatAfrika({
+    wsUrl: 'wss://ws.dev.chaterafrika.com',
+    token: 'your-sdk-token',
+    debug: true
+  });
+
+  // Handle connection events
+  client.on('connected', () => console.log('Connected!'));
+  client.on('disconnected', () => console.log('Disconnected'));
+  client.on('error', (err) => console.error('Error:', err));
+
+  // Connect
+  await client.connect();
+
+  // Join conversation
+  const conversationId = 'your-conversation-id';
+  await client.conversations.join(conversationId);
+
+  // Get conversation instance
+  const conversation = client.conversations.get(conversationId);
+
+  // Listen for messages
+  conversation.on('message', (message) => {
+    console.log(`${message.senderId}: ${message.content}`);
+  });
+
+  // Listen for typing indicators
+  conversation.on('typing', (event) => {
+    if (event.state === 'start') {
+      console.log(`${event.userId} is typing...`);
+    } else {
+      console.log(`${event.userId} stopped typing`);
+    }
+  });
+
+  // Listen for receipts
+  conversation.on('receipt', (event) => {
+    console.log(`Message ${event.messageId} was ${event.state}`);
+  });
+
+  // Send a message
+  conversation.sendMessage('Hello from ChaterAfrika!');
+
+  return client;
+}
+
+// Initialize
+initializeChat().catch(console.error);
 ```
 
 ## Next Steps
@@ -254,4 +356,3 @@ const client = new ChatAfrika({
     Code examples
   </Card>
 </CardGroup>
-

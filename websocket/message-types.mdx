@@ -1,0 +1,428 @@
+---
+title: "WebSocket Message Types"
+description: "Complete reference for ChaterAfrika WebSocket message types"
+---
+
+## Overview
+
+All WebSocket messages are JSON objects with a `type` field. Messages flow in both directions: client→server and server→client.
+
+## Message Structure
+
+### Client → Server
+
+```typescript
+interface ClientMessage {
+  type: string;              // Message type
+  conversation_id?: string;  // Conversation ID (if applicable)
+  payload?: any;             // Optional payload
+}
+```
+
+### Server → Client
+
+```typescript
+interface ServerMessage {
+  type: string;              // Message type
+  conversation_id?: string;  // Conversation ID (if applicable)
+  payload?: any;             // Response payload
+  error?: string;            // Error message (if error)
+}
+```
+
+## Client Message Types
+
+### join
+
+Join a conversation room to receive messages.
+
+```json
+{
+  "type": "join",
+  "conversation_id": "uuid"
+}
+```
+
+**Response:**
+```json
+{
+  "type": "joined",
+  "payload": {
+    "conversation_id": "uuid"
+  }
+}
+```
+
+### leave
+
+Leave a conversation room.
+
+```json
+{
+  "type": "leave",
+  "conversation_id": "uuid"
+}
+```
+
+**Response:**
+```json
+{
+  "type": "left",
+  "payload": {
+    "conversation_id": "uuid"
+  }
+}
+```
+
+### message
+
+Send a message to a conversation.
+
+```json
+{
+  "type": "message",
+  "conversation_id": "uuid",
+  "payload": {
+    "message_id": "uuid",
+    "content": "Hello, world!",
+    "message_type": "text"
+  }
+}
+```
+
+**Broadcast (to all room members):**
+```json
+{
+  "type": "message",
+  "conversation_id": "uuid",
+  "payload": {
+    "message_id": "uuid",
+    "sender_id": "user-uuid",
+    "sender_type": "sdk",
+    "content": "Hello, world!",
+    "message_type": "text",
+    "sent_at": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+### typing_start
+
+Indicate user started typing.
+
+```json
+{
+  "type": "typing_start",
+  "conversation_id": "uuid"
+}
+```
+
+**Broadcast:**
+```json
+{
+  "type": "typing",
+  "conversation_id": "uuid",
+  "payload": {
+    "user_id": "user-uuid",
+    "state": "start"
+  }
+}
+```
+
+### typing_stop
+
+Indicate user stopped typing.
+
+```json
+{
+  "type": "typing_stop",
+  "conversation_id": "uuid"
+}
+```
+
+**Broadcast:**
+```json
+{
+  "type": "typing",
+  "conversation_id": "uuid",
+  "payload": {
+    "user_id": "user-uuid",
+    "state": "stop"
+  }
+}
+```
+
+### read
+
+Mark a message as read.
+
+```json
+{
+  "type": "read",
+  "conversation_id": "uuid",
+  "message_id": "message-uuid"
+}
+```
+
+## Server Message Types
+
+### joined
+
+Confirmation of joining a room.
+
+```json
+{
+  "type": "joined",
+  "payload": {
+    "conversation_id": "uuid"
+  }
+}
+```
+
+### left
+
+Confirmation of leaving a room.
+
+```json
+{
+  "type": "left",
+  "payload": {
+    "conversation_id": "uuid"
+  }
+}
+```
+
+### message
+
+New message received.
+
+```json
+{
+  "type": "message",
+  "conversation_id": "uuid",
+  "payload": {
+    "message_id": "uuid",
+    "sender_id": "user-uuid",
+    "sender_type": "sdk",
+    "content": "Hello!",
+    "message_type": "text",
+    "sent_at": "2024-01-01T00:00:00Z",
+    "metadata": {}
+  }
+}
+```
+
+### typing
+
+Typing indicator update.
+
+```json
+{
+  "type": "typing",
+  "conversation_id": "uuid",
+  "payload": {
+    "user_id": "user-uuid",
+    "state": "start"
+  }
+}
+```
+
+State values: `start`, `stop`
+
+### presence
+
+User presence update.
+
+```json
+{
+  "type": "presence",
+  "payload": {
+    "user_id": "user-uuid",
+    "state": "online"
+  }
+}
+```
+
+State values: `online`, `offline`
+
+### receipt
+
+Message receipt update.
+
+```json
+{
+  "type": "receipt",
+  "conversation_id": "uuid",
+  "payload": {
+    "message_id": "message-uuid",
+    "state": "delivered",
+    "user_id": "user-uuid"
+  }
+}
+```
+
+State values: `delivered`, `read`
+
+### support
+
+Support session event.
+
+```json
+{
+  "type": "support",
+  "conversation_id": "uuid",
+  "payload": {
+    "event": "assigned",
+    "agent_id": "agent-uuid",
+    "agent_name": "John Doe"
+  }
+}
+```
+
+Event values: `assigned`, `bot_takeover`, `closed`
+
+### error
+
+Error response.
+
+```json
+{
+  "type": "error",
+  "error": "conversation_id is required"
+}
+```
+
+## Message Payload Details
+
+### Message Payload
+
+```typescript
+interface MessagePayload {
+  message_id: string;          // Client-generated UUID
+  content: string;             // Message content
+  message_type: 'text' | 'system'; // Message type
+}
+
+interface BroadcastMessagePayload {
+  message_id: string;          // Message ID
+  sender_id: string;           // Sender user ID
+  sender_type: string;         // 'sdk' | 'api' | 'bot' | 'agent'
+  content: string;             // Message content
+  message_type: string;        // 'text' | 'system'
+  sent_at: string;             // ISO 8601 timestamp
+  metadata?: object;           // Custom metadata
+}
+```
+
+### Typing Payload
+
+```typescript
+interface TypingPayload {
+  user_id: string;
+  state: 'start' | 'stop';
+}
+```
+
+### Presence Payload
+
+```typescript
+interface PresencePayload {
+  user_id: string;
+  state: 'online' | 'offline';
+}
+```
+
+### Receipt Payload
+
+```typescript
+interface ReceiptPayload {
+  message_id: string;
+  state: 'delivered' | 'read';
+  user_id?: string;
+}
+```
+
+### Support Event Payload
+
+```typescript
+interface SupportEventPayload {
+  event: 'assigned' | 'bot_takeover' | 'closed';
+  agent_id?: string;
+  agent_name?: string;
+  resolution?: string;
+}
+```
+
+## Example: Complete Flow
+
+```javascript
+const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', {
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+
+ws.onopen = () => {
+  // Join a conversation
+  ws.send(JSON.stringify({
+    type: 'join',
+    conversation_id: 'conv-123'
+  }));
+};
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  
+  switch (msg.type) {
+    case 'joined':
+      console.log('Joined:', msg.payload.conversation_id);
+      
+      // Send a message
+      ws.send(JSON.stringify({
+        type: 'message',
+        conversation_id: 'conv-123',
+        payload: {
+          message_id: crypto.randomUUID(),
+          content: 'Hello!',
+          message_type: 'text'
+        }
+      }));
+      break;
+      
+    case 'message':
+      console.log('Message:', msg.payload.content);
+      break;
+      
+    case 'typing':
+      console.log(`${msg.payload.user_id} is ${msg.payload.state === 'start' ? 'typing' : 'done'}`);
+      break;
+      
+    case 'presence':
+      console.log(`${msg.payload.user_id} is ${msg.payload.state}`);
+      break;
+      
+    case 'receipt':
+      console.log(`Message ${msg.payload.message_id}: ${msg.payload.state}`);
+      break;
+      
+    case 'error':
+      console.error('Error:', msg.error);
+      break;
+  }
+};
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Rooms" icon="door-open" href="/websocket/rooms">
+    Room management
+  </Card>
+  <Card title="Messaging" icon="message" href="/websocket/messaging">
+    Real-time messaging
+  </Card>
+  <Card title="Presence" icon="user" href="/websocket/presence">
+    Presence system
+  </Card>
+  <Card title="SDK" icon="code" href="/sdk/overview">
+    Use the SDK instead
+  </Card>
+</CardGroup>

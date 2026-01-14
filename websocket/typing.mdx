@@ -1,0 +1,311 @@
+---
+title: "WebSocket Typing Indicators"
+description: "Typing indicators via WebSocket"
+---
+
+## Overview
+
+Typing indicators show when users are composing messages. They are conversation-scoped and automatically expire.
+
+## Sending Typing Start
+
+```json
+{
+  "type": "typing_start",
+  "conversation_id": "uuid"
+}
+```
+
+## Sending Typing Stop
+
+```json
+{
+  "type": "typing_stop",
+  "conversation_id": "uuid"
+}
+```
+
+## Receiving Typing Events
+
+Typing events are broadcast to room members:
+
+```json
+{
+  "type": "typing",
+  "conversation_id": "uuid",
+  "payload": {
+    "user_id": "user-uuid",
+    "state": "start"
+  }
+}
+```
+
+### States
+
+| State | Description |
+|-------|-------------|
+| `start` | User started typing |
+| `stop` | User stopped typing |
+
+## Auto-Expiration
+
+Typing indicators automatically expire after **5 seconds**. If the user is still typing, send `typing_start` again to keep the indicator alive.
+
+```javascript
+let typingInterval = null;
+
+function startTyping(conversationId) {
+  // Send immediately
+  ws.send(JSON.stringify({
+    type: 'typing_start',
+    conversation_id: conversationId
+  }));
+  
+  // Keep alive every 4 seconds
+  typingInterval = setInterval(() => {
+    ws.send(JSON.stringify({
+      type: 'typing_start',
+      conversation_id: conversationId
+    }));
+  }, 4000);
+}
+
+function stopTyping(conversationId) {
+  if (typingInterval) {
+    clearInterval(typingInterval);
+    typingInterval = null;
+  }
+  
+  ws.send(JSON.stringify({
+    type: 'typing_stop',
+    conversation_id: conversationId
+  }));
+}
+```
+
+## Complete Implementation
+
+```javascript
+class TypingManager {
+  constructor(ws) {
+    this.ws = ws;
+    this.typingUsers = new Map(); // conversationId -> Set<userId>
+    this.localTypingTimers = new Map();
+    
+    ws.addEventListener('message', (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'typing') {
+        this.handleTypingEvent(msg.conversation_id, msg.payload);
+      }
+    });
+  }
+  
+  // Handle incoming typing event
+  handleTypingEvent(conversationId, payload) {
+    const { user_id, state } = payload;
+    
+    let users = this.typingUsers.get(conversationId);
+    if (!users) {
+      users = new Set();
+      this.typingUsers.set(conversationId, users);
+    }
+    
+    if (state === 'start') {
+      users.add(user_id);
+    } else {
+      users.delete(user_id);
+    }
+    
+    this.notifyListeners(conversationId);
+  }
+  
+  // Send typing start
+  startTyping(conversationId) {
+    // Clear existing timer
+    this.clearLocalTimer(conversationId);
+    
+    // Send typing_start
+    this.ws.send(JSON.stringify({
+      type: 'typing_start',
+      conversation_id: conversationId
+    }));
+    
+    // Set up keep-alive
+    const timer = setInterval(() => {
+      this.ws.send(JSON.stringify({
+        type: 'typing_start',
+        conversation_id: conversationId
+      }));
+    }, 4000);
+    
+    this.localTypingTimers.set(conversationId, timer);
+  }
+  
+  // Send typing stop
+  stopTyping(conversationId) {
+    this.clearLocalTimer(conversationId);
+    
+    this.ws.send(JSON.stringify({
+      type: 'typing_stop',
+      conversation_id: conversationId
+    }));
+  }
+  
+  clearLocalTimer(conversationId) {
+    const timer = this.localTypingTimers.get(conversationId);
+    if (timer) {
+      clearInterval(timer);
+      this.localTypingTimers.delete(conversationId);
+    }
+  }
+  
+  // Get typing users for a conversation
+  getTypingUsers(conversationId) {
+    const users = this.typingUsers.get(conversationId);
+    return users ? Array.from(users) : [];
+  }
+  
+  notifyListeners(conversationId) {
+    // Override in subclass or use event emitter
+    console.log(`Typing in ${conversationId}:`, this.getTypingUsers(conversationId));
+  }
+  
+  // Clean up
+  destroy() {
+    for (const timer of this.localTypingTimers.values()) {
+      clearInterval(timer);
+    }
+    this.localTypingTimers.clear();
+  }
+}
+
+// Usage
+const typing = new TypingManager(ws);
+
+// When user starts typing
+inputElement.addEventListener('input', () => {
+  typing.startTyping('conv-123');
+});
+
+// When user stops or sends
+inputElement.addEventListener('blur', () => {
+  typing.stopTyping('conv-123');
+});
+
+form.addEventListener('submit', () => {
+  typing.stopTyping('conv-123');
+});
+```
+
+## Input Handler Pattern
+
+Debounce typing events based on user activity:
+
+```javascript
+class InputTypingHandler {
+  constructor(typingManager, conversationId) {
+    this.typingManager = typingManager;
+    this.conversationId = conversationId;
+    this.isTyping = false;
+    this.stopTimer = null;
+  }
+  
+  handleInput() {
+    if (!this.isTyping) {
+      this.isTyping = true;
+      this.typingManager.startTyping(this.conversationId);
+    }
+    
+    // Reset stop timer
+    if (this.stopTimer) {
+      clearTimeout(this.stopTimer);
+    }
+    
+    // Stop after 2 seconds of inactivity
+    this.stopTimer = setTimeout(() => {
+      this.stop();
+    }, 2000);
+  }
+  
+  handleSend() {
+    this.stop();
+  }
+  
+  stop() {
+    if (this.isTyping) {
+      this.isTyping = false;
+      this.typingManager.stopTyping(this.conversationId);
+    }
+    if (this.stopTimer) {
+      clearTimeout(this.stopTimer);
+      this.stopTimer = null;
+    }
+  }
+}
+
+// Usage
+const inputHandler = new InputTypingHandler(typing, 'conv-123');
+
+input.addEventListener('input', () => inputHandler.handleInput());
+form.addEventListener('submit', () => inputHandler.handleSend());
+```
+
+## Display Typing Indicator
+
+```javascript
+function formatTypingIndicator(userIds, userNames) {
+  if (userIds.length === 0) return '';
+  
+  const names = userIds.map(id => userNames.get(id) || 'Someone');
+  
+  if (names.length === 1) {
+    return `${names[0]} is typing...`;
+  } else if (names.length === 2) {
+    return `${names[0]} and ${names[1]} are typing...`;
+  } else {
+    return `${names[0]}, ${names[1]}, and ${names.length - 2} others are typing...`;
+  }
+}
+
+// Update UI
+function updateTypingUI(conversationId, typingManager, userNames) {
+  const typingUsers = typingManager.getTypingUsers(conversationId);
+  const indicator = document.getElementById('typing-indicator');
+  indicator.textContent = formatTypingIndicator(typingUsers, userNames);
+  indicator.style.display = typingUsers.length > 0 ? 'block' : 'none';
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Debounce" icon="clock">
+    Don't send typing_start on every keystroke.
+  </Card>
+  <Card title="Stop on Send" icon="paper-plane">
+    Always stop typing before sending a message.
+  </Card>
+  <Card title="Keep Alive" icon="heartbeat">
+    Resend typing_start every 4 seconds while typing.
+  </Card>
+  <Card title="Clean Up" icon="broom">
+    Clear timers when component unmounts.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Receipts" icon="check" href="/websocket/receipts">
+    Read receipts
+  </Card>
+  <Card title="Presence" icon="user" href="/websocket/presence">
+    Presence system
+  </Card>
+  <Card title="SDK Typing" icon="code" href="/sdk/typing">
+    SDK typing guide
+  </Card>
+  <Card title="Messaging" icon="message" href="/websocket/messaging">
+    Real-time messaging
+  </Card>
+</CardGroup>

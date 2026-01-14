@@ -1,0 +1,307 @@
+---
+title: "SDK Receipts"
+description: "Read receipts with the ChaterAfrika SDK"
+---
+
+## Overview
+
+Read receipts track the delivery and read status of messages. The SDK provides receipt events at the conversation level.
+
+## Receipt States
+
+| State | Description |
+|-------|-------------|
+| `sent` | Message sent to server |
+| `delivered` | Message delivered to recipient |
+| `read` | Message read by recipient |
+
+## Listening for Receipts
+
+```typescript
+const conversation = client.conversations.get('conversation-id');
+
+conversation.on('receipt', (event) => {
+  console.log('Message:', event.messageId);
+  console.log('State:', event.state); // 'delivered' | 'read'
+  console.log('User:', event.userId);
+  
+  // Update message UI
+  updateMessageStatus(event.messageId, event.state);
+});
+```
+
+## Receipt Event
+
+```typescript
+interface ReceiptEvent {
+  messageId: string;
+  state: 'delivered' | 'read';
+  userId?: string;  // User who delivered/read the message
+}
+```
+
+## Message Lifecycle with Receipts
+
+```typescript
+conversation.on('message', (message) => {
+  // Initial state when message is sent
+  console.log('Receipt state:', message.receiptState); // 'sent'
+  
+  displayMessage(message);
+});
+
+conversation.on('receipt', (event) => {
+  // Update message status as receipts arrive
+  if (event.state === 'delivered') {
+    markMessageDelivered(event.messageId);
+  } else if (event.state === 'read') {
+    markMessageRead(event.messageId);
+  }
+});
+```
+
+## Tracking Message Status
+
+```typescript
+class MessageTracker {
+  private messages: Map<string, {
+    content: string;
+    status: 'sending' | 'sent' | 'delivered' | 'read';
+  }> = new Map();
+
+  constructor(private conversation: Conversation) {
+    conversation.on('message', (message) => {
+      const status = message.isOptimistic ? 'sending' : 'sent';
+      this.messages.set(message.id, {
+        content: message.content,
+        status
+      });
+      this.notifyUpdate(message.id);
+    });
+
+    conversation.on('receipt', (event) => {
+      const message = this.messages.get(event.messageId);
+      if (message) {
+        message.status = event.state;
+        this.notifyUpdate(event.messageId);
+      }
+    });
+  }
+
+  getStatus(messageId: string): string {
+    return this.messages.get(messageId)?.status || 'unknown';
+  }
+
+  private notifyUpdate(messageId: string) {
+    // Notify UI of status change
+    const message = this.messages.get(messageId);
+    console.log(`Message ${messageId}: ${message?.status}`);
+  }
+}
+```
+
+## React Integration
+
+```tsx
+import { useState, useEffect } from 'react';
+import { Conversation, Message } from '@chatafrika/sdk';
+
+interface MessageWithStatus extends Message {
+  displayStatus: 'sending' | 'sent' | 'delivered' | 'read';
+}
+
+function useMessagesWithReceipts(conversation: Conversation) {
+  const [messages, setMessages] = useState<MessageWithStatus[]>([]);
+
+  useEffect(() => {
+    const handleMessage = (message: Message) => {
+      setMessages(prev => {
+        const exists = prev.find(m => m.id === message.id);
+        const newMessage: MessageWithStatus = {
+          ...message,
+          displayStatus: message.isOptimistic ? 'sending' : 'sent'
+        };
+
+        if (exists) {
+          return prev.map(m => m.id === message.id ? { ...m, ...newMessage } : m);
+        }
+        return [...prev, newMessage];
+      });
+    };
+
+    const handleReceipt = (event: { messageId: string; state: 'delivered' | 'read' }) => {
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === event.messageId
+            ? { ...m, displayStatus: event.state }
+            : m
+        )
+      );
+    };
+
+    conversation.on('message', handleMessage);
+    conversation.on('receipt', handleReceipt);
+
+    return () => {
+      conversation.off('message', handleMessage);
+      conversation.off('receipt', handleReceipt);
+    };
+  }, [conversation]);
+
+  return messages;
+}
+
+// Usage
+function MessageList({ conversation }) {
+  const messages = useMessagesWithReceipts(conversation);
+
+  return (
+    <div>
+      {messages.map(msg => (
+        <div key={msg.id} className="message">
+          <span>{msg.content}</span>
+          <MessageStatus status={msg.displayStatus} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MessageStatus({ status }: { status: string }) {
+  const icons = {
+    sending: '⏳',
+    sent: '✓',
+    delivered: '✓✓',
+    read: '✓✓' // Blue checkmarks in real UI
+  };
+
+  const colors = {
+    sending: 'gray',
+    sent: 'gray',
+    delivered: 'gray',
+    read: 'blue'
+  };
+
+  return (
+    <span style={{ color: colors[status] }}>
+      {icons[status]}
+    </span>
+  );
+}
+```
+
+## UI Status Indicators
+
+Common patterns for showing message status:
+
+| Status | Icon | Description |
+|--------|------|-------------|
+| Sending | ⏳ or spinner | Message being sent |
+| Sent | ✓ (gray) | Sent to server |
+| Delivered | ✓✓ (gray) | Delivered to recipient |
+| Read | ✓✓ (blue) | Read by recipient |
+
+## Complete Example
+
+```typescript
+import { ChatAfrika, Conversation, Message } from '@chatafrika/sdk';
+
+class ChatWithReceipts {
+  private client: ChatAfrika;
+  private conversation: Conversation;
+  private messageStatuses: Map<string, string> = new Map();
+
+  async initialize(token: string, conversationId: string) {
+    this.client = new ChatAfrika({
+      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      token
+    });
+
+    await this.client.connect();
+    await this.client.conversations.join(conversationId);
+    
+    this.conversation = this.client.conversations.get(conversationId);
+    
+    // Handle messages
+    this.conversation.on('message', (message) => {
+      const status = message.isOptimistic ? 'sending' : 'sent';
+      this.messageStatuses.set(message.id, status);
+      this.renderMessage(message, status);
+    });
+
+    // Handle receipts
+    this.conversation.on('receipt', (event) => {
+      this.messageStatuses.set(event.messageId, event.state);
+      this.updateMessageUI(event.messageId, event.state);
+    });
+  }
+
+  sendMessage(content: string) {
+    this.conversation.sendMessage(content);
+  }
+
+  private renderMessage(message: Message, status: string) {
+    console.log(`[${status}] ${message.senderId}: ${message.content}`);
+  }
+
+  private updateMessageUI(messageId: string, status: string) {
+    console.log(`Message ${messageId} status: ${status}`);
+    
+    // Update DOM
+    const element = document.querySelector(`[data-message-id="${messageId}"] .status`);
+    if (element) {
+      element.textContent = this.getStatusIcon(status);
+      element.className = `status ${status}`;
+    }
+  }
+
+  private getStatusIcon(status: string): string {
+    switch (status) {
+      case 'sending': return '⏳';
+      case 'sent': return '✓';
+      case 'delivered': return '✓✓';
+      case 'read': return '✓✓';
+      default: return '';
+    }
+  }
+}
+
+// Usage
+const chat = new ChatWithReceipts();
+await chat.initialize('your-token', 'conversation-id');
+chat.sendMessage('Hello!');
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Optimistic Updates" icon="bolt">
+    Show 'sending' status immediately, update when confirmed.
+  </Card>
+  <Card title="Status Transitions" icon="arrow-right">
+    Status only goes forward: sending → sent → delivered → read.
+  </Card>
+  <Card title="Visual Distinction" icon="eye">
+    Use colors (blue for read) to distinguish status clearly.
+  </Card>
+  <Card title="Group Chats" icon="users">
+    In groups, 'read' may mean read by at least one member.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Messaging" icon="message" href="/sdk/messaging">
+    Sending messages
+  </Card>
+  <Card title="Typing" icon="keyboard" href="/sdk/typing">
+    Typing indicators
+  </Card>
+  <Card title="Presence" icon="user" href="/sdk/presence">
+    Online status
+  </Card>
+  <Card title="Examples" icon="code" href="/sdk/examples">
+    Complete examples
+  </Card>
+</CardGroup>

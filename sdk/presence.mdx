@@ -1,0 +1,297 @@
+---
+title: "SDK Presence"
+description: "User presence management with the ChaterAfrika SDK"
+---
+
+## Overview
+
+Presence tracking allows you to see when users are online or offline. The SDK provides SDK-global presence tracking that works across all conversations.
+
+## Listening for Presence Updates
+
+### SDK-Level Events
+
+```typescript
+// Listen for presence updates at the SDK level
+client.on('presence', (event) => {
+  console.log('User:', event.userId);
+  console.log('State:', event.state); // 'online' | 'offline'
+  
+  if (event.state === 'online') {
+    // Show user as online
+    markUserOnline(event.userId);
+  } else {
+    // Show user as offline
+    markUserOffline(event.userId);
+  }
+});
+```
+
+### Conversation-Level Events
+
+Presence events are also emitted at the conversation level:
+
+```typescript
+const conversation = client.conversations.get('conversation-id');
+
+conversation.on('presence', (event) => {
+  console.log('User:', event.userId);
+  console.log('State:', event.state);
+});
+```
+
+## Presence Event
+
+```typescript
+interface PresenceEvent {
+  userId: string;
+  state: 'online' | 'offline';
+}
+```
+
+## Automatic Presence
+
+When you connect to the WebSocket, your presence is automatically set to `online`. When you disconnect, it's set to `offline`.
+
+```typescript
+// Connect - presence automatically set to 'online'
+await client.connect();
+
+// Disconnect - presence automatically set to 'offline'
+await client.disconnect();
+```
+
+## Tracking Multiple Users
+
+```typescript
+const onlineUsers = new Map<string, boolean>();
+
+client.on('presence', (event) => {
+  if (event.state === 'online') {
+    onlineUsers.set(event.userId, true);
+  } else {
+    onlineUsers.delete(event.userId);
+  }
+  
+  updateOnlineUsersList();
+});
+
+function isUserOnline(userId: string): boolean {
+  return onlineUsers.has(userId);
+}
+
+function updateOnlineUsersList() {
+  console.log('Online users:', Array.from(onlineUsers.keys()));
+}
+```
+
+## React Integration
+
+```tsx
+import { useState, useEffect } from 'react';
+import { ChatAfrika, PresenceEvent } from '@chatafrika/sdk';
+
+function usePresence(client: ChatAfrika) {
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const handlePresence = (event: PresenceEvent) => {
+      setOnlineUsers(prev => {
+        const next = new Set(prev);
+        if (event.state === 'online') {
+          next.add(event.userId);
+        } else {
+          next.delete(event.userId);
+        }
+        return next;
+      });
+    };
+
+    client.on('presence', handlePresence);
+
+    return () => {
+      client.off('presence', handlePresence);
+    };
+  }, [client]);
+
+  const isOnline = (userId: string) => onlineUsers.has(userId);
+
+  return { onlineUsers, isOnline };
+}
+
+// Usage
+function UserList({ client, users }) {
+  const { isOnline } = usePresence(client);
+
+  return (
+    <ul>
+      {users.map(user => (
+        <li key={user.id}>
+          <span className={isOnline(user.id) ? 'online' : 'offline'}>
+            {isOnline(user.id) ? '🟢' : '⚫'}
+          </span>
+          {user.name}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Presence in Chat UI
+
+```typescript
+class ChatUI {
+  private client: ChatAfrika;
+  private onlineUsers: Map<string, boolean> = new Map();
+
+  async initialize(token: string) {
+    this.client = new ChatAfrika({
+      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      token
+    });
+
+    // Track presence
+    this.client.on('presence', (event) => {
+      if (event.state === 'online') {
+        this.onlineUsers.set(event.userId, true);
+      } else {
+        this.onlineUsers.delete(event.userId);
+      }
+      this.updatePresenceUI();
+    });
+
+    await this.client.connect();
+  }
+
+  private updatePresenceUI() {
+    // Update UI to show online/offline status
+    document.querySelectorAll('[data-user-id]').forEach(el => {
+      const userId = el.getAttribute('data-user-id');
+      const isOnline = this.onlineUsers.has(userId!);
+      el.classList.toggle('online', isOnline);
+      el.classList.toggle('offline', !isOnline);
+    });
+  }
+
+  isUserOnline(userId: string): boolean {
+    return this.onlineUsers.has(userId);
+  }
+}
+```
+
+## Presence States
+
+| State | Description |
+|-------|-------------|
+| `online` | User is connected to WebSocket |
+| `offline` | User has disconnected |
+
+<Note>
+Presence events are deduplicated by the SDK. You'll only receive an event when the state actually changes (online→offline or offline→online), not duplicate online→online events.
+</Note>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Debounce UI Updates" icon="clock">
+    Debounce presence UI updates to avoid flickering during reconnection.
+  </Card>
+  <Card title="Graceful Fallback" icon="plug">
+    Show "unknown" status for users you haven't received presence for.
+  </Card>
+  <Card title="Cache Presence" icon="database">
+    Cache presence state to persist across page refreshes.
+  </Card>
+  <Card title="Handle Reconnection" icon="refresh">
+    Presence may briefly show offline during reconnection.
+  </Card>
+</CardGroup>
+
+## Complete Example
+
+```typescript
+import { ChatAfrika, PresenceEvent } from '@chatafrika/sdk';
+
+class PresenceManager {
+  private client: ChatAfrika;
+  private presenceState: Map<string, 'online' | 'offline'> = new Map();
+  private listeners: Array<(userId: string, state: 'online' | 'offline') => void> = [];
+
+  constructor(client: ChatAfrika) {
+    this.client = client;
+    
+    // Listen for presence events
+    this.client.on('presence', this.handlePresence.bind(this));
+  }
+
+  private handlePresence(event: PresenceEvent) {
+    this.presenceState.set(event.userId, event.state);
+    
+    // Notify listeners
+    this.listeners.forEach(listener => {
+      listener(event.userId, event.state);
+    });
+  }
+
+  getPresence(userId: string): 'online' | 'offline' | 'unknown' {
+    return this.presenceState.get(userId) ?? 'unknown';
+  }
+
+  isOnline(userId: string): boolean {
+    return this.presenceState.get(userId) === 'online';
+  }
+
+  getOnlineUsers(): string[] {
+    return Array.from(this.presenceState.entries())
+      .filter(([_, state]) => state === 'online')
+      .map(([userId]) => userId);
+  }
+
+  onPresenceChange(listener: (userId: string, state: 'online' | 'offline') => void) {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener);
+    };
+  }
+}
+
+// Usage
+const client = new ChatAfrika({
+  wsUrl: 'wss://ws.dev.chaterafrika.com',
+  token: 'your-token'
+});
+
+await client.connect();
+
+const presenceManager = new PresenceManager(client);
+
+// Subscribe to changes
+const unsubscribe = presenceManager.onPresenceChange((userId, state) => {
+  console.log(`${userId} is now ${state}`);
+});
+
+// Check presence
+console.log('Is user online?', presenceManager.isOnline('user-123'));
+console.log('Online users:', presenceManager.getOnlineUsers());
+
+// Cleanup
+unsubscribe();
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Typing" icon="keyboard" href="/sdk/typing">
+    Typing indicators
+  </Card>
+  <Card title="Receipts" icon="check" href="/sdk/receipts">
+    Read receipts
+  </Card>
+  <Card title="Conversations" icon="comments" href="/sdk/conversations">
+    Conversation management
+  </Card>
+  <Card title="Examples" icon="code" href="/sdk/examples">
+    Complete examples
+  </Card>
+</CardGroup>

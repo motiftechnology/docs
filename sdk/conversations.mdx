@@ -1,0 +1,301 @@
+---
+title: "SDK Conversations"
+description: "Managing conversations with the ChaterAfrika SDK"
+---
+
+## Overview
+
+Conversations are the core of ChaterAfrika messaging. The SDK provides a conversation-scoped API where you join a conversation, get a `Conversation` instance, and interact with it.
+
+## Joining Conversations
+
+Before you can send or receive messages, you must join a conversation:
+
+```typescript
+// Join a conversation
+await client.conversations.join('conversation-id');
+
+// Check if joined
+const isJoined = client.conversations.has('conversation-id');
+console.log('Is joined:', isJoined); // true
+```
+
+## Getting Conversation Instance
+
+After joining, get the `Conversation` instance to interact with it:
+
+```typescript
+const conversation = client.conversations.get('conversation-id');
+
+// Properties
+console.log('ID:', conversation.id);
+console.log('Is joined:', conversation.isJoined);
+```
+
+## Conversation API
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `string` | The conversation ID |
+| `isJoined` | `boolean` | Whether currently joined |
+
+### Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `sendMessage(content, type?, metadata?)` | `void` | Send a message |
+| `startTyping()` | `void` | Start typing indicator |
+| `stopTyping()` | `void` | Stop typing indicator |
+
+### Events
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `message` | `Message` | New message received |
+| `typing` | `{ userId, state }` | Typing indicator update |
+| `receipt` | `{ messageId, state }` | Receipt update |
+| `joined` | `{ conversation_id }` | Joined confirmation |
+| `left` | `{ conversation_id }` | Left confirmation |
+| `error` | `Error` | Error occurred |
+
+## Sending Messages
+
+```typescript
+const conversation = client.conversations.get('conversation-id');
+
+// Simple text message
+conversation.sendMessage('Hello, world!');
+
+// With message type
+conversation.sendMessage('Hello!', 'text');
+
+// With metadata
+conversation.sendMessage('Hello!', 'text', {
+  customField: 'value',
+  timestamp: Date.now()
+});
+```
+
+### Message Types
+
+- `text` - Regular text message (default)
+- `system` - System message
+
+## Receiving Messages
+
+Listen for incoming messages on the conversation:
+
+```typescript
+const conversation = client.conversations.get('conversation-id');
+
+conversation.on('message', (message) => {
+  console.log('Message ID:', message.id);
+  console.log('Content:', message.content);
+  console.log('Sender:', message.senderId);
+  console.log('Sent at:', message.sentAt);
+  console.log('Is optimistic:', message.isOptimistic);
+});
+```
+
+### Message Object
+
+```typescript
+interface Message {
+  id: string;              // Message ID
+  conversationId: string;  // Conversation ID
+  content: string;         // Message content
+  senderId: string;        // Sender user ID
+  senderType: string;      // 'sdk', 'api', 'bot', etc.
+  messageType: string;     // 'text', 'system'
+  sentAt: Date;            // Timestamp
+  isOptimistic: boolean;   // Is optimistic (not yet confirmed)
+  receiptState: string;    // 'sent', 'delivered', 'read'
+  metadata?: object;       // Custom metadata
+}
+```
+
+## Typing Indicators
+
+### Sending Typing Status
+
+```typescript
+const conversation = client.conversations.get('conversation-id');
+
+// Start typing (send when user starts typing)
+conversation.startTyping();
+
+// Stop typing (send when user stops or sends message)
+conversation.stopTyping();
+```
+
+### Receiving Typing Status
+
+```typescript
+conversation.on('typing', (event) => {
+  if (event.state === 'start') {
+    console.log(`${event.userId} is typing...`);
+    // Show typing indicator in UI
+  } else {
+    console.log(`${event.userId} stopped typing`);
+    // Hide typing indicator
+  }
+});
+```
+
+<Note>
+Typing indicators automatically expire after 5 seconds. The server handles this, so you don't need to manually call `stopTyping()` after a timeout.
+</Note>
+
+## Read Receipts
+
+### Listening for Receipts
+
+```typescript
+conversation.on('receipt', (event) => {
+  console.log('Message:', event.messageId);
+  console.log('State:', event.state); // 'delivered' or 'read'
+  console.log('User:', event.userId);
+});
+```
+
+## Leaving Conversations
+
+When you're done with a conversation:
+
+```typescript
+await client.conversations.leave('conversation-id');
+```
+
+## Complete Example
+
+```typescript
+import { ChatAfrika } from '@chatafrika/sdk';
+
+async function chatExample() {
+  const client = new ChatAfrika({
+    wsUrl: 'wss://ws.dev.chaterafrika.com',
+    token: 'your-sdk-token'
+  });
+
+  // Connect
+  await client.connect();
+
+  const conversationId = 'conv-123';
+
+  // Join conversation
+  await client.conversations.join(conversationId);
+
+  // Get conversation instance
+  const conversation = client.conversations.get(conversationId);
+
+  // Handle messages
+  conversation.on('message', (message) => {
+    console.log(`[${message.senderId}]: ${message.content}`);
+  });
+
+  // Handle typing
+  conversation.on('typing', (event) => {
+    if (event.state === 'start') {
+      console.log(`${event.userId} is typing...`);
+    }
+  });
+
+  // Handle receipts
+  conversation.on('receipt', (event) => {
+    console.log(`Message ${event.messageId}: ${event.state}`);
+  });
+
+  // Handle joined event
+  conversation.on('joined', () => {
+    console.log('Successfully joined conversation!');
+    
+    // Send initial message
+    conversation.sendMessage('Hello everyone!');
+  });
+
+  // Send typing indicator when user types
+  function handleUserTyping() {
+    conversation.startTyping();
+  }
+
+  // Send message
+  function sendMessage(content: string) {
+    conversation.stopTyping(); // Stop typing when sending
+    conversation.sendMessage(content);
+  }
+
+  // Cleanup on exit
+  process.on('SIGINT', async () => {
+    await client.conversations.leave(conversationId);
+    await client.disconnect();
+    process.exit(0);
+  });
+}
+
+chatExample().catch(console.error);
+```
+
+## Multiple Conversations
+
+You can join multiple conversations simultaneously:
+
+```typescript
+// Join multiple conversations
+await client.conversations.join('conv-1');
+await client.conversations.join('conv-2');
+await client.conversations.join('conv-3');
+
+// Get each conversation
+const conv1 = client.conversations.get('conv-1');
+const conv2 = client.conversations.get('conv-2');
+const conv3 = client.conversations.get('conv-3');
+
+// Each has independent event handlers
+conv1.on('message', (msg) => console.log('Conv 1:', msg.content));
+conv2.on('message', (msg) => console.log('Conv 2:', msg.content));
+conv3.on('message', (msg) => console.log('Conv 3:', msg.content));
+
+// Send to specific conversation
+conv1.sendMessage('Hello conv 1!');
+conv2.sendMessage('Hello conv 2!');
+```
+
+## Error Handling
+
+```typescript
+const conversation = client.conversations.get('conversation-id');
+
+// Handle conversation-level errors
+conversation.on('error', (error) => {
+  console.error('Conversation error:', error.message);
+});
+
+// Try-catch for methods
+try {
+  conversation.sendMessage('Hello!');
+} catch (error) {
+  if (error.message.includes('not joined')) {
+    console.error('Must join conversation first!');
+    await client.conversations.join('conversation-id');
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Messaging" icon="message" href="/sdk/messaging">
+    Deep dive into messaging
+  </Card>
+  <Card title="Typing" icon="keyboard" href="/sdk/typing">
+    Typing indicators
+  </Card>
+  <Card title="Receipts" icon="check" href="/sdk/receipts">
+    Read receipts
+  </Card>
+  <Card title="Examples" icon="code" href="/sdk/examples">
+    Complete examples
+  </Card>
+</CardGroup>

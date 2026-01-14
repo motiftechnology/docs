@@ -1,0 +1,324 @@
+---
+title: "SDK Messaging"
+description: "Sending and receiving messages with the ChaterAfrika SDK"
+---
+
+## Overview
+
+ChaterAfrika uses WebSockets for all messaging operations. Messages are sent through the SDK and delivered in real-time to all conversation participants.
+
+<Warning>
+**Messages are sent exclusively over WebSockets.**
+
+This guarantees ordering, real-time delivery, typing indicators, presence, and receipts.
+
+REST APIs are used for history, analytics, and internal automation only.
+</Warning>
+
+## Sending Messages
+
+### Basic Usage
+
+```typescript
+// Get the conversation
+const conversation = client.conversations.get('conversation-id');
+
+// Send a text message
+conversation.sendMessage('Hello, world!');
+```
+
+### With Message Type
+
+```typescript
+// Text message (default)
+conversation.sendMessage('Hello!', 'text');
+
+// System message
+conversation.sendMessage('User joined the conversation', 'system');
+```
+
+### With Metadata
+
+```typescript
+// Send with custom metadata
+conversation.sendMessage('Check out this product!', 'text', {
+  productId: 'prod-123',
+  productName: 'Widget Pro',
+  price: 99.99
+});
+```
+
+## Receiving Messages
+
+Listen for incoming messages on a conversation:
+
+```typescript
+const conversation = client.conversations.get('conversation-id');
+
+conversation.on('message', (message) => {
+  // Message properties
+  console.log('ID:', message.id);
+  console.log('Content:', message.content);
+  console.log('Sender:', message.senderId);
+  console.log('Type:', message.messageType);
+  console.log('Sent at:', message.sentAt);
+  console.log('Receipt state:', message.receiptState);
+  
+  // Check if optimistic (not yet confirmed by server)
+  if (message.isOptimistic) {
+    console.log('Message pending confirmation...');
+  }
+});
+```
+
+## Message Object
+
+```typescript
+interface Message {
+  id: string;                    // Unique message ID (UUID)
+  conversationId: string;        // Conversation this message belongs to
+  content: string;               // Message content
+  senderId: string;              // ID of the sender
+  senderType: string;            // 'sdk' | 'api' | 'bot' | 'agent'
+  messageType: 'text' | 'system'; // Type of message
+  sentAt: Date;                  // When the message was sent
+  isOptimistic: boolean;         // True if awaiting server confirmation
+  receiptState: ReceiptState;    // 'sent' | 'delivered' | 'read'
+  metadata?: Record<string, unknown>; // Custom metadata
+}
+```
+
+## Optimistic Updates
+
+When you send a message, the SDK creates an optimistic message immediately:
+
+```typescript
+conversation.on('message', (message) => {
+  if (message.isOptimistic) {
+    // Show message with "sending..." indicator
+    displayMessage(message, { status: 'sending' });
+  } else {
+    // Message confirmed by server
+    displayMessage(message, { status: 'sent' });
+  }
+});
+
+// Send message - triggers immediate optimistic event
+conversation.sendMessage('Hello!');
+```
+
+### Message Lifecycle
+
+1. **Optimistic** - Message created locally, `isOptimistic: true`
+2. **Confirmed** - Server confirms, `isOptimistic: false`
+3. **Delivered** - Recipient received, `receiptState: 'delivered'`
+4. **Read** - Recipient read, `receiptState: 'read'`
+
+## Receipt States
+
+Track message delivery status:
+
+```typescript
+conversation.on('receipt', (event) => {
+  console.log('Message:', event.messageId);
+  console.log('State:', event.state); // 'delivered' | 'read'
+  console.log('User:', event.userId);
+  
+  // Update UI
+  updateMessageStatus(event.messageId, event.state);
+});
+```
+
+## Message Deduplication
+
+The SDK automatically handles duplicate messages:
+
+- Messages with the same ID are deduplicated
+- You'll only receive one `message` event per unique message
+- Server echoes are reconciled with optimistic messages
+
+## Complete Example
+
+```typescript
+import { ChatAfrika, Message } from '@chatafrika/sdk';
+
+class ChatUI {
+  private client: ChatAfrika;
+  private conversation: Conversation;
+  private messages: Map<string, Message> = new Map();
+
+  async initialize(token: string, conversationId: string) {
+    this.client = new ChatAfrika({
+      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      token,
+      debug: true
+    });
+
+    await this.client.connect();
+    await this.client.conversations.join(conversationId);
+    
+    this.conversation = this.client.conversations.get(conversationId);
+    this.setupEventHandlers();
+  }
+
+  private setupEventHandlers() {
+    // Handle incoming messages
+    this.conversation.on('message', (message) => {
+      this.messages.set(message.id, message);
+      this.renderMessage(message);
+    });
+
+    // Handle receipt updates
+    this.conversation.on('receipt', (event) => {
+      const message = this.messages.get(event.messageId);
+      if (message) {
+        this.updateMessageStatus(event.messageId, event.state);
+      }
+    });
+
+    // Handle errors
+    this.conversation.on('error', (error) => {
+      console.error('Chat error:', error);
+      this.showError(error.message);
+    });
+  }
+
+  sendMessage(content: string) {
+    if (!content.trim()) return;
+    
+    // Stop typing indicator
+    this.conversation.stopTyping();
+    
+    // Send message
+    this.conversation.sendMessage(content);
+  }
+
+  private renderMessage(message: Message) {
+    const status = message.isOptimistic ? 'sending' : message.receiptState;
+    console.log(`[${status}] ${message.senderId}: ${message.content}`);
+  }
+
+  private updateMessageStatus(messageId: string, status: string) {
+    console.log(`Message ${messageId} is now: ${status}`);
+  }
+
+  private showError(message: string) {
+    console.error('Error:', message);
+  }
+}
+
+// Usage
+const chat = new ChatUI();
+await chat.initialize('your-token', 'conversation-id');
+chat.sendMessage('Hello, world!');
+```
+
+## React Integration
+
+```tsx
+import { useState, useEffect, useCallback } from 'react';
+import { ChatAfrika, Message, Conversation } from '@chatafrika/sdk';
+
+function useMessages(client: ChatAfrika, conversationId: string) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [conversation, setConversation] = useState<Conversation | null>(null);
+
+  useEffect(() => {
+    async function setup() {
+      await client.conversations.join(conversationId);
+      const conv = client.conversations.get(conversationId);
+      setConversation(conv);
+
+      conv.on('message', (message) => {
+        setMessages(prev => {
+          // Update or add message
+          const exists = prev.find(m => m.id === message.id);
+          if (exists) {
+            return prev.map(m => m.id === message.id ? message : m);
+          }
+          return [...prev, message];
+        });
+      });
+    }
+
+    setup();
+
+    return () => {
+      client.conversations.leave(conversationId);
+    };
+  }, [client, conversationId]);
+
+  const sendMessage = useCallback((content: string) => {
+    conversation?.sendMessage(content);
+  }, [conversation]);
+
+  return { messages, sendMessage };
+}
+
+function ChatRoom({ client, conversationId }) {
+  const { messages, sendMessage } = useMessages(client, conversationId);
+  const [input, setInput] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (input.trim()) {
+      sendMessage(input);
+      setInput('');
+    }
+  };
+
+  return (
+    <div>
+      <div className="messages">
+        {messages.map(msg => (
+          <div key={msg.id} className={msg.isOptimistic ? 'pending' : 'sent'}>
+            <strong>{msg.senderId}:</strong> {msg.content}
+          </div>
+        ))}
+      </div>
+      <form onSubmit={handleSubmit}>
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type a message..."
+        />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  );
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Optimistic UI" icon="bolt">
+    Show messages immediately using `isOptimistic` flag, then update when confirmed.
+  </Card>
+  <Card title="Error Handling" icon="exclamation-triangle">
+    Always handle the `error` event to catch and display messaging errors.
+  </Card>
+  <Card title="Deduplication" icon="copy">
+    The SDK handles this, but ensure your UI can handle message updates.
+  </Card>
+  <Card title="Stop Typing" icon="keyboard">
+    Call `stopTyping()` before sending a message to clear the typing indicator.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Typing" icon="keyboard" href="/sdk/typing">
+    Typing indicators
+  </Card>
+  <Card title="Receipts" icon="check" href="/sdk/receipts">
+    Read receipts
+  </Card>
+  <Card title="Presence" icon="user" href="/sdk/presence">
+    Online/offline status
+  </Card>
+  <Card title="Examples" icon="code" href="/sdk/examples">
+    Complete examples
+  </Card>
+</CardGroup>

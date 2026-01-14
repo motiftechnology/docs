@@ -1,0 +1,292 @@
+---
+title: "WebSocket Signaling"
+description: "WebRTC signaling via WebSocket"
+---
+
+## Overview
+
+The realtime service supports WebRTC signaling for peer-to-peer connections. This enables features like video/audio calls and screen sharing.
+
+## Signaling Flow
+
+```
+1. Caller sends 'offer' to Callee via WebSocket
+2. Callee receives offer, creates 'answer'
+3. Callee sends 'answer' back via WebSocket
+4. Both exchange 'ice' candidates via WebSocket
+5. Peer connection established directly
+```
+
+## Message Types
+
+### Offer
+
+Send a WebRTC offer to a user:
+
+```json
+{
+  "type": "signal",
+  "signal_type": "offer",
+  "conversation_id": "uuid",
+  "target_user_id": "callee-uuid",
+  "payload": {
+    "sdp": "v=0\r\no=- 123456789..."
+  }
+}
+```
+
+### Answer
+
+Send a WebRTC answer in response:
+
+```json
+{
+  "type": "signal",
+  "signal_type": "answer",
+  "conversation_id": "uuid",
+  "target_user_id": "caller-uuid",
+  "payload": {
+    "sdp": "v=0\r\no=- 987654321..."
+  }
+}
+```
+
+### ICE Candidate
+
+Exchange ICE candidates:
+
+```json
+{
+  "type": "signal",
+  "signal_type": "ice",
+  "conversation_id": "uuid",
+  "target_user_id": "peer-uuid",
+  "payload": {
+    "candidate": "candidate:123...",
+    "sdpMid": "0",
+    "sdpMLineIndex": 0
+  }
+}
+```
+
+## Complete Example
+
+```javascript
+class WebRTCSignaling {
+  constructor(ws, localUserId) {
+    this.ws = ws;
+    this.localUserId = localUserId;
+    this.peerConnection = null;
+    this.onRemoteStream = null;
+    
+    ws.addEventListener('message', (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'signal') {
+        this.handleSignal(msg);
+      }
+    });
+  }
+  
+  async startCall(conversationId, targetUserId) {
+    this.peerConnection = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+    
+    // Get local media
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    });
+    
+    // Add tracks to peer connection
+    for (const track of stream.getTracks()) {
+      this.peerConnection.addTrack(track, stream);
+    }
+    
+    // Handle remote stream
+    this.peerConnection.ontrack = (event) => {
+      if (this.onRemoteStream) {
+        this.onRemoteStream(event.streams[0]);
+      }
+    };
+    
+    // Handle ICE candidates
+    this.peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        this.sendSignal(conversationId, targetUserId, 'ice', {
+          candidate: event.candidate.candidate,
+          sdpMid: event.candidate.sdpMid,
+          sdpMLineIndex: event.candidate.sdpMLineIndex
+        });
+      }
+    };
+    
+    // Create and send offer
+    const offer = await this.peerConnection.createOffer();
+    await this.peerConnection.setLocalDescription(offer);
+    
+    this.sendSignal(conversationId, targetUserId, 'offer', {
+      sdp: offer.sdp
+    });
+    
+    return stream;
+  }
+  
+  async handleSignal(msg) {
+    const { signal_type, conversation_id, payload } = msg;
+    const senderId = msg.sender_id;
+    
+    switch (signal_type) {
+      case 'offer':
+        await this.handleOffer(conversation_id, senderId, payload);
+        break;
+      case 'answer':
+        await this.handleAnswer(payload);
+        break;
+      case 'ice':
+        await this.handleICE(payload);
+        break;
+    }
+  }
+  
+  async handleOffer(conversationId, senderId, payload) {
+    this.peerConnection = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+    
+    // Get local media
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    });
+    
+    for (const track of stream.getTracks()) {
+      this.peerConnection.addTrack(track, stream);
+    }
+    
+    this.peerConnection.ontrack = (event) => {
+      if (this.onRemoteStream) {
+        this.onRemoteStream(event.streams[0]);
+      }
+    };
+    
+    this.peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        this.sendSignal(conversationId, senderId, 'ice', {
+          candidate: event.candidate.candidate,
+          sdpMid: event.candidate.sdpMid,
+          sdpMLineIndex: event.candidate.sdpMLineIndex
+        });
+      }
+    };
+    
+    // Set remote description (offer)
+    await this.peerConnection.setRemoteDescription({
+      type: 'offer',
+      sdp: payload.sdp
+    });
+    
+    // Create and send answer
+    const answer = await this.peerConnection.createAnswer();
+    await this.peerConnection.setLocalDescription(answer);
+    
+    this.sendSignal(conversationId, senderId, 'answer', {
+      sdp: answer.sdp
+    });
+  }
+  
+  async handleAnswer(payload) {
+    await this.peerConnection.setRemoteDescription({
+      type: 'answer',
+      sdp: payload.sdp
+    });
+  }
+  
+  async handleICE(payload) {
+    if (this.peerConnection) {
+      await this.peerConnection.addIceCandidate({
+        candidate: payload.candidate,
+        sdpMid: payload.sdpMid,
+        sdpMLineIndex: payload.sdpMLineIndex
+      });
+    }
+  }
+  
+  sendSignal(conversationId, targetUserId, signalType, payload) {
+    this.ws.send(JSON.stringify({
+      type: 'signal',
+      signal_type: signalType,
+      conversation_id: conversationId,
+      target_user_id: targetUserId,
+      payload
+    }));
+  }
+  
+  endCall() {
+    if (this.peerConnection) {
+      this.peerConnection.close();
+      this.peerConnection = null;
+    }
+  }
+}
+
+// Usage
+const signaling = new WebRTCSignaling(ws, 'my-user-id');
+
+signaling.onRemoteStream = (stream) => {
+  const video = document.getElementById('remote-video');
+  video.srcObject = stream;
+  video.play();
+};
+
+// Start a call
+async function startCall() {
+  const localStream = await signaling.startCall('conv-123', 'other-user-id');
+  const localVideo = document.getElementById('local-video');
+  localVideo.srcObject = localStream;
+  localVideo.play();
+}
+
+// End call
+function endCall() {
+  signaling.endCall();
+}
+```
+
+<Note>
+WebRTC signaling is a lower-level feature. For production use, consider using the SDK's signaling helpers when available.
+</Note>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="STUN/TURN" icon="server">
+    Configure proper STUN/TURN servers for NAT traversal.
+  </Card>
+  <Card title="Error Handling" icon="exclamation-triangle">
+    Handle connection failures and fallbacks gracefully.
+  </Card>
+  <Card title="Permissions" icon="lock">
+    Request media permissions before starting calls.
+  </Card>
+  <Card title="Clean Up" icon="broom">
+    Always close peer connections when done.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Messaging" icon="message" href="/websocket/messaging">
+    Real-time messaging
+  </Card>
+  <Card title="Presence" icon="user" href="/websocket/presence">
+    Presence system
+  </Card>
+  <Card title="Overview" icon="book" href="/websocket/overview">
+    WebSocket overview
+  </Card>
+  <Card title="SDK" icon="code" href="/sdk/overview">
+    Use the SDK
+  </Card>
+</CardGroup>

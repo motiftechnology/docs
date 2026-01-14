@@ -14,7 +14,7 @@ ChaterAfrika is a multi-tenant chat and customer support platform that provides 
   <Card title="API Reference" icon="terminal" href="/api-reference/introduction">
     Explore REST API endpoints
   </Card>
-  <Card title="Authentication" icon="key" href="/guides/backend/authentication">
+  <Card title="Authentication" icon="key" href="/guides/authentication">
     Learn about authentication
   </Card>
   <Card title="Architecture" icon="diagram-project" href="/guides/architecture">
@@ -47,67 +47,88 @@ import { ChatAfrika } from '@chatafrika/sdk';
 
 // Initialize the SDK with your credentials
 const client = new ChatAfrika({
-  apiUrl: 'https://api.chaterafrika.com', // Your API endpoint
   wsUrl: 'wss://ws.dev.chaterafrika.com', // Your WebSocket endpoint
-  sdkToken: 'your_sdk_token' // Get this from your dashboard
+  token: 'your-sdk-token' // Get this from your dashboard
 });
 
-// Connect to realtime
+// Connect to WebSocket
 await client.connect();
 ```
 
-### Create a Conversation
+### Join a Conversation
 
 ```typescript
-// Create a new conversation
-const conversation = await client.conversations.create({
-  type: 'DIRECT',
-  members: ['user-id-1', 'user-id-2']
-});
+// Join a conversation to receive messages
+await client.conversations.join('conversation-id');
 
-console.log('Conversation created:', conversation.id);
+// Get the conversation instance
+const conversation = client.conversations.get('conversation-id');
+
+console.log('Joined conversation:', conversation.id);
 ```
 
 ### Send a Message
 
+<Warning>
+**Messages are sent exclusively over WebSockets.**
+
+This guarantees ordering, real-time delivery, typing indicators, presence, and receipts.
+
+Use `client.conversations.get(conversationId).sendMessage(content)` to send messages.
+
+REST APIs are used for history, analytics, and internal automation only.
+</Warning>
+
 ```typescript
 // Get the conversation and send a message
-const conv = client.conversations.get(conversation.id);
-conv.sendMessage('Hello, world!');
+const conversation = client.conversations.get('conversation-id');
+conversation.sendMessage('Hello, world!');
 
 // Or in one line:
-client.conversations.get(conversation.id).sendMessage('Hello, world!');
+client.conversations.get('conversation-id').sendMessage('Hello, world!');
 ```
 
 ### Receive Messages
 
 ```typescript
-// Join a conversation to receive messages
-await client.conversations.join(conversation.id);
-
 // Get the conversation and listen for incoming messages
-const conv = client.conversations.get(conversation.id);
-conv.on('message', (message) => {
-  console.log('New message received:', message);
+const conversation = client.conversations.get('conversation-id');
+
+conversation.on('message', (message) => {
+  console.log('New message:', message.content);
+  console.log('From:', message.senderId);
   // Update your UI here
 });
 ```
 
-### Presence and Typing Indicators
+### Typing Indicators
 
 ```typescript
-// Update presence status
-await client.presence.update('online');
+const conversation = client.conversations.get('conversation-id');
 
-// Send typing indicator
-await client.typing.start(conversation.id);
+// Start typing indicator
+conversation.startTyping();
 
 // Stop typing indicator
-await client.typing.stop(conversation.id);
+conversation.stopTyping();
 
-// Listen for presence updates
-client.presence.on('update', (update) => {
-  console.log('User presence changed:', update);
+// Listen for typing events from others
+conversation.on('typing', (event) => {
+  if (event.state === 'start') {
+    console.log(`${event.userId} is typing...`);
+  } else {
+    console.log(`${event.userId} stopped typing`);
+  }
+});
+```
+
+### Presence
+
+```typescript
+// Listen for presence updates at the SDK level
+client.on('presence', (event) => {
+  console.log(`${event.userId} is ${event.state}`);
+  // event.state is 'online' or 'offline'
 });
 ```
 
@@ -119,35 +140,47 @@ import { ChatAfrika } from '@chatafrika/sdk';
 async function initializeChat() {
   // Initialize SDK
   const client = new ChatAfrika({
-    apiUrl: 'https://api.chaterafrika.com',
     wsUrl: 'wss://ws.dev.chaterafrika.com',
-    sdkToken: 'your_sdk_token'
+    token: 'your-sdk-token',
+    debug: true
   });
 
-  // Connect to realtime
+  // Handle connection events
+  client.on('connected', () => console.log('Connected!'));
+  client.on('disconnected', () => console.log('Disconnected'));
+  client.on('error', (err) => console.error('Error:', err));
+
+  // Connect to WebSocket
   await client.connect();
   console.log('Connected to ChaterAfrika');
 
-  // Create or get conversation
-  const conversation = await client.conversations.create({
-    type: 'DIRECT',
-    members: ['user-id-1', 'user-id-2']
-  });
-
   // Join conversation
-  await client.conversations.join(conversation.id);
+  const conversationId = 'your-conversation-id';
+  await client.conversations.join(conversationId);
 
-  // Get the conversation
-  const conv = client.conversations.get(conversation.id);
+  // Get conversation instance
+  const conversation = client.conversations.get(conversationId);
 
   // Listen for messages
-  conv.on('message', (message) => {
+  conversation.on('message', (message) => {
     console.log('Received:', message.content);
     // Display message in your UI
   });
 
+  // Listen for typing
+  conversation.on('typing', (event) => {
+    if (event.state === 'start') {
+      console.log(`${event.userId} is typing...`);
+    }
+  });
+
+  // Listen for receipts
+  conversation.on('receipt', (event) => {
+    console.log(`Message ${event.messageId}: ${event.state}`);
+  });
+
   // Send a message
-  conv.sendMessage('Hello from ChaterAfrika!');
+  conversation.sendMessage('Hello from ChaterAfrika!');
 
   return client;
 }
@@ -182,6 +215,26 @@ Response:
 }
 ```
 
+### Get SDK Token
+
+Exchange your access token for an SDK token:
+
+```bash
+curl -X POST https://api.chaterafrika.com/api/v1/auth/sdk-token \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_id": "your-app-id"
+  }'
+```
+
+Response:
+```json
+{
+  "sdk_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
 ### Make API Requests
 
 Use the access token in subsequent requests:
@@ -196,15 +249,9 @@ curl https://api.chaterafrika.com/api/v1/conversations/{conversationId}/messages
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
-<Warning>
-**Sending Messages**
-
-Messages are sent exclusively over WebSockets. This guarantees ordering, real-time delivery, typing indicators, presence, and receipts.
-
-Use the JavaScript SDK to send messages via WebSocket: `client.conversations.get(conversationId).sendMessage(content)`
-
-REST APIs are used for history, analytics, and internal automation only.
-</Warning>
+<Note>
+**REST API is for reading data only.** Use the SDK for sending messages.
+</Note>
 
 ## WebSocket Connection
 
@@ -238,13 +285,13 @@ ws.onmessage = (event) => {
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="SDK Documentation" icon="code" href="/guides/sdk/overview">
+  <Card title="SDK Documentation" icon="code" href="/sdk/overview">
     Complete SDK reference and examples
   </Card>
   <Card title="API Reference" icon="terminal" href="/api-reference/introduction">
     Explore all API endpoints
   </Card>
-  <Card title="Authentication" icon="key" href="/guides/backend/authentication">
+  <Card title="Authentication" icon="key" href="/guides/authentication">
     Learn about authentication flows
   </Card>
   <Card title="Webhooks" icon="webhook" href="/guides/webhooks">
@@ -259,10 +306,10 @@ ws.onmessage = (event) => {
     Contact [support@chaterafrika.com](mailto:support@chaterafrika.com) to get your API URL, WebSocket URL, and SDK token.
   </Accordion>
   <Accordion title="How do I handle errors?">
-    The SDK provides error handling. Check the [SDK documentation](/guides/sdk/overview) for error handling patterns.
+    The SDK provides error handling. Check the [SDK documentation](/sdk/overview) for error handling patterns.
   </Accordion>
   <Accordion title="Can I use ChaterAfrika in a mobile app?">
-    Yes! The SDK works in React Native and other JavaScript environments. Check the [SDK documentation](/guides/sdk/overview) for platform-specific guides.
+    Yes! The SDK works in React Native and other JavaScript environments. Check the [SDK documentation](/sdk/overview) for platform-specific guides.
   </Accordion>
 </AccordionGroup>
 

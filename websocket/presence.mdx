@@ -1,0 +1,259 @@
+---
+title: "WebSocket Presence"
+description: "User presence tracking via WebSocket"
+---
+
+## Overview
+
+Presence tracks whether users are online or offline. The system automatically manages presence based on WebSocket connection state.
+
+## Presence States
+
+| State | Description |
+|-------|-------------|
+| `online` | User is connected to WebSocket |
+| `offline` | User has disconnected |
+
+## Automatic Presence
+
+Presence is automatically managed:
+
+1. **Connect** → User is marked `online`
+2. **Disconnect** → User is marked `offline`
+3. **Reconnect** → User is marked `online` again
+
+No manual presence updates are required.
+
+## Receiving Presence Updates
+
+Presence updates are broadcast to relevant users:
+
+```json
+{
+  "type": "presence",
+  "payload": {
+    "user_id": "user-uuid",
+    "state": "online"
+  }
+}
+```
+
+### Handling Presence
+
+```javascript
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  
+  if (msg.type === 'presence') {
+    const { user_id, state } = msg.payload;
+    
+    if (state === 'online') {
+      markUserOnline(user_id);
+    } else {
+      markUserOffline(user_id);
+    }
+  }
+};
+```
+
+## Presence Scope
+
+Presence events are delivered based on context:
+
+- **Conversation members** - Users in the same conversation
+- **Tenant-wide** - Depending on configuration
+
+## Tracking Multiple Users
+
+```javascript
+class PresenceTracker {
+  constructor() {
+    this.users = new Map(); // userId -> 'online' | 'offline'
+  }
+  
+  handlePresence(userId, state) {
+    this.users.set(userId, state);
+    this.notifyListeners(userId, state);
+  }
+  
+  isOnline(userId) {
+    return this.users.get(userId) === 'online';
+  }
+  
+  getOnlineUsers() {
+    const online = [];
+    for (const [userId, state] of this.users) {
+      if (state === 'online') {
+        online.push(userId);
+      }
+    }
+    return online;
+  }
+  
+  notifyListeners(userId, state) {
+    // Notify UI components
+    console.log(`User ${userId} is now ${state}`);
+  }
+}
+
+// Usage
+const presence = new PresenceTracker();
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  
+  if (msg.type === 'presence') {
+    presence.handlePresence(msg.payload.user_id, msg.payload.state);
+  }
+};
+```
+
+## Deduplication
+
+The system deduplicates presence events:
+
+- Multiple `online` events for the same user are collapsed
+- Only state changes trigger broadcasts
+- Prevents flickering during reconnection
+
+## Complete Example
+
+```javascript
+class PresenceManager {
+  constructor(ws, onUpdate) {
+    this.ws = ws;
+    this.onUpdate = onUpdate;
+    this.presenceState = new Map();
+    
+    ws.addEventListener('message', (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'presence') {
+        this.handlePresence(msg.payload);
+      }
+    });
+  }
+  
+  handlePresence(payload) {
+    const { user_id, state } = payload;
+    
+    // Only update if state changed
+    const currentState = this.presenceState.get(user_id);
+    if (currentState === state) return;
+    
+    this.presenceState.set(user_id, state);
+    
+    // Notify callback
+    this.onUpdate(user_id, state);
+  }
+  
+  isOnline(userId) {
+    return this.presenceState.get(userId) === 'online';
+  }
+  
+  getPresence(userId) {
+    return this.presenceState.get(userId) || 'unknown';
+  }
+  
+  getOnlineCount() {
+    let count = 0;
+    for (const state of this.presenceState.values()) {
+      if (state === 'online') count++;
+    }
+    return count;
+  }
+}
+
+// Usage
+const presence = new PresenceManager(ws, (userId, state) => {
+  console.log(`👤 ${userId} is ${state}`);
+  updateUI(userId, state);
+});
+
+function updateUI(userId, state) {
+  const userElement = document.querySelector(`[data-user="${userId}"]`);
+  if (userElement) {
+    userElement.classList.toggle('online', state === 'online');
+    userElement.classList.toggle('offline', state === 'offline');
+  }
+}
+```
+
+## UI Patterns
+
+### Online Indicator
+
+```html
+<div class="user" data-user="user-123">
+  <span class="status-dot"></span>
+  <span class="name">John Doe</span>
+</div>
+
+<style>
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: gray;
+  }
+  
+  .user.online .status-dot {
+    background: #22c55e;
+  }
+  
+  .user.offline .status-dot {
+    background: gray;
+  }
+</style>
+```
+
+### Online Users List
+
+```javascript
+function renderOnlineUsers(presenceManager, allUsers) {
+  const onlineList = document.getElementById('online-users');
+  onlineList.innerHTML = '';
+  
+  for (const user of allUsers) {
+    if (presenceManager.isOnline(user.id)) {
+      const li = document.createElement('li');
+      li.textContent = user.name;
+      li.className = 'online';
+      onlineList.appendChild(li);
+    }
+  }
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Debounce Updates" icon="clock">
+    Debounce UI updates to prevent flickering during reconnection.
+  </Card>
+  <Card title="Default State" icon="question">
+    Assume 'unknown' for users without presence data.
+  </Card>
+  <Card title="Cache Presence" icon="database">
+    Cache presence state for quick lookups.
+  </Card>
+  <Card title="Graceful Fallback" icon="plug">
+    Handle connection drops gracefully.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Typing" icon="keyboard" href="/websocket/typing">
+    Typing indicators
+  </Card>
+  <Card title="Messaging" icon="message" href="/websocket/messaging">
+    Real-time messaging
+  </Card>
+  <Card title="SDK Presence" icon="code" href="/sdk/presence">
+    SDK presence guide
+  </Card>
+  <Card title="Rooms" icon="door-open" href="/websocket/rooms">
+    Room management
+  </Card>
+</CardGroup>

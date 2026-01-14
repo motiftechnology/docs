@@ -1,0 +1,303 @@
+---
+title: "WebSocket Receipts"
+description: "Message receipts via WebSocket"
+---
+
+## Overview
+
+Receipts track message delivery and read status. They provide feedback to senders about whether their messages have been received and read.
+
+## Receipt States
+
+| State | Description |
+|-------|-------------|
+| `delivered` | Message delivered to recipient's device |
+| `read` | Message read by recipient |
+
+## Sending Read Receipt
+
+Mark a message as read:
+
+```json
+{
+  "type": "read",
+  "conversation_id": "uuid",
+  "message_id": "message-uuid"
+}
+```
+
+## Receiving Receipt Events
+
+Receipt updates are broadcast to relevant users:
+
+```json
+{
+  "type": "receipt",
+  "conversation_id": "uuid",
+  "payload": {
+    "message_id": "message-uuid",
+    "state": "read",
+    "user_id": "user-uuid"
+  }
+}
+```
+
+### Payload Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `message_id` | string | ID of the message |
+| `state` | string | `delivered` or `read` |
+| `user_id` | string | User who triggered the receipt |
+
+## Receipt Lifecycle
+
+```
+1. Message sent → status: 'sent'
+2. Delivered to recipient → receipt: 'delivered'
+3. Recipient opens conversation → receipt: 'read'
+```
+
+## Handling Receipts
+
+```javascript
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  
+  if (msg.type === 'receipt') {
+    const { message_id, state, user_id } = msg.payload;
+    
+    // Update message status in UI
+    updateMessageStatus(message_id, state);
+    
+    console.log(`Message ${message_id} was ${state} by ${user_id}`);
+  }
+};
+
+function updateMessageStatus(messageId, status) {
+  const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
+  if (messageEl) {
+    const statusEl = messageEl.querySelector('.status');
+    statusEl.className = `status ${status}`;
+    statusEl.textContent = getStatusIcon(status);
+  }
+}
+
+function getStatusIcon(status) {
+  switch (status) {
+    case 'sent': return '✓';
+    case 'delivered': return '✓✓';
+    case 'read': return '✓✓'; // Usually blue
+    default: return '';
+  }
+}
+```
+
+## Complete Implementation
+
+```javascript
+class ReceiptManager {
+  constructor(ws) {
+    this.ws = ws;
+    this.messageStatuses = new Map(); // messageId -> status
+    this.listeners = new Set();
+    
+    ws.addEventListener('message', (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'receipt') {
+        this.handleReceipt(msg.payload);
+      }
+    });
+  }
+  
+  handleReceipt(payload) {
+    const { message_id, state, user_id } = payload;
+    
+    // Status only moves forward
+    const currentStatus = this.messageStatuses.get(message_id);
+    if (!this.shouldUpdate(currentStatus, state)) {
+      return;
+    }
+    
+    this.messageStatuses.set(message_id, state);
+    
+    // Notify listeners
+    for (const listener of this.listeners) {
+      listener(message_id, state, user_id);
+    }
+  }
+  
+  shouldUpdate(current, next) {
+    const order = ['sent', 'delivered', 'read'];
+    const currentIndex = order.indexOf(current);
+    const nextIndex = order.indexOf(next);
+    return nextIndex > currentIndex;
+  }
+  
+  // Mark message as read
+  markRead(conversationId, messageId) {
+    this.ws.send(JSON.stringify({
+      type: 'read',
+      conversation_id: conversationId,
+      message_id: messageId
+    }));
+  }
+  
+  // Get status
+  getStatus(messageId) {
+    return this.messageStatuses.get(messageId) || 'sent';
+  }
+  
+  // Add listener
+  onReceipt(callback) {
+    this.listeners.add(callback);
+    return () => this.listeners.delete(callback);
+  }
+  
+  // Set initial status for sent message
+  setInitialStatus(messageId, status = 'sent') {
+    this.messageStatuses.set(messageId, status);
+  }
+}
+
+// Usage
+const receipts = new ReceiptManager(ws);
+
+// Listen for receipt updates
+receipts.onReceipt((messageId, status, userId) => {
+  console.log(`Message ${messageId} is now ${status}`);
+  updateUI(messageId, status);
+});
+
+// When sending a message
+function sendMessage(content) {
+  const messageId = crypto.randomUUID();
+  receipts.setInitialStatus(messageId, 'sent');
+  
+  ws.send(JSON.stringify({
+    type: 'message',
+    conversation_id: 'conv-123',
+    payload: {
+      message_id: messageId,
+      content,
+      message_type: 'text'
+    }
+  }));
+}
+
+// When user reads a message
+function markAsRead(conversationId, messageId) {
+  receipts.markRead(conversationId, messageId);
+}
+```
+
+## Auto-Read on View
+
+Automatically mark messages as read when they become visible:
+
+```javascript
+class AutoReadManager {
+  constructor(receiptManager, conversationId) {
+    this.receiptManager = receiptManager;
+    this.conversationId = conversationId;
+    this.observer = null;
+  }
+  
+  observe(messagesContainer) {
+    this.observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          const messageId = entry.target.dataset.messageId;
+          const isOwn = entry.target.dataset.isOwn === 'true';
+          
+          // Don't mark own messages as read
+          if (!isOwn && messageId) {
+            this.receiptManager.markRead(this.conversationId, messageId);
+          }
+        }
+      }
+    }, {
+      root: messagesContainer,
+      threshold: 0.5
+    });
+    
+    // Observe all message elements
+    const messages = messagesContainer.querySelectorAll('[data-message-id]');
+    for (const msg of messages) {
+      this.observer.observe(msg);
+    }
+  }
+  
+  disconnect() {
+    if (this.observer) {
+      this.observer.disconnect();
+    }
+  }
+}
+
+// Usage
+const autoRead = new AutoReadManager(receipts, 'conv-123');
+autoRead.observe(document.getElementById('messages'));
+```
+
+## UI Status Indicators
+
+```html
+<div class="message" data-message-id="msg-123">
+  <span class="content">Hello!</span>
+  <span class="status sent">✓</span>
+</div>
+
+<style>
+  .status {
+    font-size: 12px;
+    margin-left: 4px;
+  }
+  
+  .status.sent {
+    color: gray;
+  }
+  
+  .status.delivered {
+    color: gray;
+  }
+  
+  .status.read {
+    color: #3b82f6; /* Blue */
+  }
+</style>
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Forward-Only" icon="arrow-right">
+    Status only moves forward: sent → delivered → read.
+  </Card>
+  <Card title="Batch Reads" icon="layer-group">
+    Batch multiple read receipts when scrolling.
+  </Card>
+  <Card title="Own Messages" icon="user">
+    Don't mark your own messages as read.
+  </Card>
+  <Card title="Visual Feedback" icon="eye">
+    Use clear visual indicators for each status.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Messaging" icon="message" href="/websocket/messaging">
+    Real-time messaging
+  </Card>
+  <Card title="Typing" icon="keyboard" href="/websocket/typing">
+    Typing indicators
+  </Card>
+  <Card title="SDK Receipts" icon="code" href="/sdk/receipts">
+    SDK receipts guide
+  </Card>
+  <Card title="Presence" icon="user" href="/websocket/presence">
+    Presence system
+  </Card>
+</CardGroup>

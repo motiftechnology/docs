@@ -1,0 +1,322 @@
+---
+title: "SDK Support Sessions"
+description: "Support session management with the ChaterAfrika SDK"
+---
+
+## Overview
+
+Support sessions enable customer-agent interactions with role-based features. The SDK provides support session management for both customers and agents.
+
+## Getting a Support Session
+
+```typescript
+// Get support session for a conversation
+const support = client.support.get('conversation-id', 'customer');
+
+// Check if exists
+const exists = client.support.has('conversation-id');
+```
+
+## Roles
+
+| Role | Description |
+|------|-------------|
+| `customer` | End user seeking support |
+| `agent` | Support agent handling the request |
+
+```typescript
+// Customer session
+const customerSession = client.support.get('conv-id', 'customer');
+
+// Agent session
+const agentSession = client.support.get('conv-id', 'agent');
+```
+
+## Support Session API
+
+### Checking Role
+
+```typescript
+const session = client.support.get('conv-id', 'customer');
+
+// Check role
+session.isCustomer(); // true
+session.isAgent();    // false
+```
+
+### Session Status
+
+```typescript
+// Get current status
+const status = session.getStatus();
+console.log(status); // 'bot' | 'queued' | 'assigned' | 'closed'
+```
+
+### Session States
+
+| State | Description |
+|-------|-------------|
+| `bot` | Conversation with AI bot |
+| `queued` | Waiting for agent assignment |
+| `assigned` | Agent assigned and handling |
+| `closed` | Support session closed |
+
+## Listening for Events
+
+```typescript
+const session = client.support.get('conv-id', 'customer');
+
+// Agent assigned
+session.on('assigned', (event) => {
+  console.log('Agent assigned:', event.agentId);
+  console.log('Agent name:', event.agentName);
+});
+
+// Bot takeover (handoff from agent to bot)
+session.on('bot_takeover', () => {
+  console.log('Bot has taken over the conversation');
+});
+
+// Session closed
+session.on('closed', (event) => {
+  console.log('Session closed');
+  console.log('Resolution:', event.resolution);
+});
+```
+
+## Customer Flow
+
+```typescript
+import { ChatAfrika } from '@chatafrika/sdk';
+
+async function customerSupportFlow() {
+  const client = new ChatAfrika({
+    wsUrl: 'wss://ws.dev.chaterafrika.com',
+    token: 'customer-sdk-token'
+  });
+
+  await client.connect();
+  
+  const conversationId = 'support-conv-id';
+  await client.conversations.join(conversationId);
+  
+  const conversation = client.conversations.get(conversationId);
+  const support = client.support.get(conversationId, 'customer');
+
+  // Listen for status changes
+  support.on('assigned', (event) => {
+    console.log(`You are now connected with ${event.agentName}`);
+  });
+
+  support.on('bot_takeover', () => {
+    console.log('You are now chatting with our AI assistant');
+  });
+
+  support.on('closed', () => {
+    console.log('Your support session has ended');
+  });
+
+  // Listen for messages
+  conversation.on('message', (message) => {
+    console.log(`${message.senderType}: ${message.content}`);
+  });
+
+  // Send message
+  conversation.sendMessage('I need help with my order');
+}
+```
+
+## Agent Flow
+
+```typescript
+import { ChatAfrika } from '@chatafrika/sdk';
+
+async function agentSupportFlow() {
+  const client = new ChatAfrika({
+    wsUrl: 'wss://ws.dev.chaterafrika.com',
+    token: 'agent-sdk-token'
+  });
+
+  await client.connect();
+  
+  const conversationId = 'support-conv-id';
+  await client.conversations.join(conversationId);
+  
+  const conversation = client.conversations.get(conversationId);
+  const support = client.support.get(conversationId, 'agent');
+
+  // Check if this is an assigned session
+  console.log('Is agent:', support.isAgent()); // true
+  console.log('Status:', support.getStatus()); // 'assigned'
+
+  // Listen for messages from customer
+  conversation.on('message', (message) => {
+    console.log(`Customer: ${message.content}`);
+    
+    // Auto-reply example
+    if (message.content.includes('order')) {
+      conversation.sendMessage('Let me check your order status...');
+    }
+  });
+
+  // Send response
+  conversation.sendMessage('Hello! How can I help you today?');
+}
+```
+
+## React Integration
+
+```tsx
+import { useState, useEffect } from 'react';
+import { ChatAfrika, SupportSession } from '@chatafrika/sdk';
+
+type SupportStatus = 'bot' | 'queued' | 'assigned' | 'closed';
+
+function useSupportSession(client: ChatAfrika, conversationId: string, role: 'customer' | 'agent') {
+  const [status, setStatus] = useState<SupportStatus>('bot');
+  const [agentInfo, setAgentInfo] = useState<{ id: string; name: string } | null>(null);
+
+  useEffect(() => {
+    const session = client.support.get(conversationId, role);
+    setStatus(session.getStatus());
+
+    session.on('assigned', (event) => {
+      setStatus('assigned');
+      setAgentInfo({ id: event.agentId, name: event.agentName });
+    });
+
+    session.on('bot_takeover', () => {
+      setStatus('bot');
+      setAgentInfo(null);
+    });
+
+    session.on('closed', () => {
+      setStatus('closed');
+    });
+  }, [client, conversationId, role]);
+
+  return { status, agentInfo };
+}
+
+// Usage
+function SupportChat({ client, conversationId }) {
+  const { status, agentInfo } = useSupportSession(client, conversationId, 'customer');
+
+  return (
+    <div>
+      <div className="status-bar">
+        {status === 'bot' && '🤖 Chatting with AI assistant'}
+        {status === 'queued' && '⏳ Waiting for an agent...'}
+        {status === 'assigned' && `👤 Connected with ${agentInfo?.name}`}
+        {status === 'closed' && '✅ Session ended'}
+      </div>
+      
+      {/* Chat messages */}
+    </div>
+  );
+}
+```
+
+## Support Events
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `assigned` | `{ agentId, agentName }` | Agent assigned to session |
+| `bot_takeover` | - | Bot took over conversation |
+| `closed` | `{ resolution? }` | Session closed |
+
+## Complete Example
+
+```typescript
+import { ChatAfrika } from '@chatafrika/sdk';
+
+class SupportChat {
+  private client: ChatAfrika;
+  private conversationId: string;
+  private role: 'customer' | 'agent';
+
+  async initialize(token: string, conversationId: string, role: 'customer' | 'agent') {
+    this.conversationId = conversationId;
+    this.role = role;
+
+    this.client = new ChatAfrika({
+      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      token
+    });
+
+    await this.client.connect();
+    await this.client.conversations.join(conversationId);
+
+    const conversation = this.client.conversations.get(conversationId);
+    const support = this.client.support.get(conversationId, role);
+
+    // Handle messages
+    conversation.on('message', (message) => {
+      this.displayMessage(message);
+    });
+
+    // Handle support events
+    support.on('assigned', (event) => {
+      this.showNotification(`Agent ${event.agentName} has joined`);
+    });
+
+    support.on('bot_takeover', () => {
+      this.showNotification('AI assistant is now helping you');
+    });
+
+    support.on('closed', () => {
+      this.showNotification('Support session has ended');
+    });
+
+    // Show initial status
+    this.showStatus(support.getStatus());
+  }
+
+  sendMessage(content: string) {
+    const conversation = this.client.conversations.get(this.conversationId);
+    conversation.sendMessage(content);
+  }
+
+  private displayMessage(message: any) {
+    const sender = message.senderType === 'bot' ? '🤖 Bot' :
+                   message.senderType === 'agent' ? '👤 Agent' : '👨 You';
+    console.log(`${sender}: ${message.content}`);
+  }
+
+  private showNotification(message: string) {
+    console.log(`📢 ${message}`);
+  }
+
+  private showStatus(status: string) {
+    const statusMap = {
+      bot: '🤖 Chatting with AI',
+      queued: '⏳ Waiting for agent',
+      assigned: '👤 Connected with agent',
+      closed: '✅ Session closed'
+    };
+    console.log(`Status: ${statusMap[status] || status}`);
+  }
+}
+
+// Usage
+const chat = new SupportChat();
+await chat.initialize('your-token', 'conv-id', 'customer');
+chat.sendMessage('I need help with my order');
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Conversations" icon="comments" href="/sdk/conversations">
+    Conversation management
+  </Card>
+  <Card title="Messaging" icon="message" href="/sdk/messaging">
+    Sending messages
+  </Card>
+  <Card title="Examples" icon="code" href="/sdk/examples">
+    Complete examples
+  </Card>
+  <Card title="Support Routing" icon="route" href="/guides/support-routing">
+    Support routing guide
+  </Card>
+</CardGroup>

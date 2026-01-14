@@ -1,0 +1,190 @@
+---
+title: "Read Receipts"
+description: "Message delivery and read receipts in ChaterAfrika"
+---
+
+## Overview
+
+Read receipts track the delivery and read status of messages, providing feedback to senders about message status.
+
+## Receipt States
+
+| State | Description |
+|-------|-------------|
+| `sent` | Message sent to server |
+| `delivered` | Message delivered to recipient's device |
+| `read` | Message read by recipient |
+
+## Lifecycle
+
+```
+1. User sends message → 'sent'
+2. Recipient's device receives → 'delivered'
+3. Recipient opens/views message → 'read'
+```
+
+## Using with SDK
+
+### Listening for Receipts
+
+```typescript
+const conversation = client.conversations.get('conv-id');
+
+conversation.on('receipt', (event) => {
+  console.log(`Message ${event.messageId}: ${event.state}`);
+  updateMessageStatus(event.messageId, event.state);
+});
+```
+
+### Message State
+
+Messages include receipt state:
+
+```typescript
+conversation.on('message', (message) => {
+  console.log('Current receipt state:', message.receiptState);
+  // 'sent', 'delivered', or 'read'
+});
+```
+
+## UI Patterns
+
+### Status Icons
+
+| Status | Icon | Color |
+|--------|------|-------|
+| Sending | ⏳ | Gray |
+| Sent | ✓ | Gray |
+| Delivered | ✓✓ | Gray |
+| Read | ✓✓ | Blue |
+
+### Implementation
+
+```typescript
+function getStatusIcon(status: string): { icon: string; color: string } {
+  switch (status) {
+    case 'sending':
+      return { icon: '⏳', color: 'gray' };
+    case 'sent':
+      return { icon: '✓', color: 'gray' };
+    case 'delivered':
+      return { icon: '✓✓', color: 'gray' };
+    case 'read':
+      return { icon: '✓✓', color: '#3b82f6' }; // Blue
+    default:
+      return { icon: '', color: 'gray' };
+  }
+}
+```
+
+## Complete Example
+
+```typescript
+import { ChatAfrika, Message } from '@chatafrika/sdk';
+
+interface MessageWithStatus {
+  id: string;
+  content: string;
+  senderId: string;
+  status: 'sending' | 'sent' | 'delivered' | 'read';
+}
+
+class MessageManager {
+  private client: ChatAfrika;
+  private messages: Map<string, MessageWithStatus> = new Map();
+  private onUpdate: (messageId: string, message: MessageWithStatus) => void;
+
+  constructor(client: ChatAfrika, onUpdate: (id: string, msg: MessageWithStatus) => void) {
+    this.client = client;
+    this.onUpdate = onUpdate;
+  }
+
+  async joinConversation(conversationId: string) {
+    await this.client.conversations.join(conversationId);
+    const conversation = this.client.conversations.get(conversationId);
+
+    // Handle messages
+    conversation.on('message', (message) => {
+      const status = message.isOptimistic ? 'sending' : 'sent';
+      const msgWithStatus: MessageWithStatus = {
+        id: message.id,
+        content: message.content,
+        senderId: message.senderId,
+        status
+      };
+      
+      this.messages.set(message.id, msgWithStatus);
+      this.onUpdate(message.id, msgWithStatus);
+    });
+
+    // Handle receipts
+    conversation.on('receipt', (event) => {
+      const message = this.messages.get(event.messageId);
+      if (message) {
+        message.status = event.state as 'delivered' | 'read';
+        this.onUpdate(event.messageId, message);
+      }
+    });
+
+    return conversation;
+  }
+
+  sendMessage(conversationId: string, content: string) {
+    const conversation = this.client.conversations.get(conversationId);
+    conversation.sendMessage(content);
+  }
+
+  getMessages(): MessageWithStatus[] {
+    return Array.from(this.messages.values());
+  }
+}
+
+// Usage
+const client = new ChatAfrika({
+  wsUrl: 'wss://ws.dev.chaterafrika.com',
+  token: 'your-token'
+});
+
+await client.connect();
+
+const manager = new MessageManager(client, (id, msg) => {
+  console.log(`[${msg.status}] ${msg.senderId}: ${msg.content}`);
+  // Update UI
+});
+
+const conversation = await manager.joinConversation('conv-123');
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Forward-Only" icon="arrow-right">
+    Status only moves forward: sent → delivered → read.
+  </Card>
+  <Card title="Optimistic Updates" icon="bolt">
+    Show 'sending' immediately, update when confirmed.
+  </Card>
+  <Card title="Visual Distinction" icon="eye">
+    Use colors to clearly distinguish status.
+  </Card>
+  <Card title="Batch Updates" icon="layer-group">
+    Batch read receipts when scrolling through messages.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="SDK Receipts" icon="check" href="/sdk/receipts">
+    Detailed SDK receipts guide
+  </Card>
+  <Card title="WebSocket Receipts" icon="plug" href="/websocket/receipts">
+    WebSocket receipts protocol
+  </Card>
+  <Card title="Messaging" icon="message" href="/guides/messages">
+    Message handling guide
+  </Card>
+  <Card title="SDK Messaging" icon="code" href="/sdk/messaging">
+    SDK messaging guide
+  </Card>
+</CardGroup>

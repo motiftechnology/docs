@@ -1,0 +1,335 @@
+---
+title: "WebSocket Messaging"
+description: "Real-time messaging via WebSocket"
+---
+
+## Overview
+
+Messages are sent exclusively over WebSockets, guaranteeing ordering, real-time delivery, and proper lifecycle management.
+
+<Warning>
+**Messages are sent exclusively over WebSockets.**
+
+This guarantees ordering, real-time delivery, typing indicators, presence, and receipts.
+
+REST APIs are used for history, analytics, and internal automation only.
+</Warning>
+
+## Sending Messages
+
+### Message Format
+
+```json
+{
+  "type": "message",
+  "conversation_id": "uuid",
+  "payload": {
+    "message_id": "client-generated-uuid",
+    "content": "Hello, world!",
+    "message_type": "text"
+  }
+}
+```
+
+### Payload Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `message_id` | string | Yes | Client-generated UUID v4 |
+| `content` | string | Yes | Message content |
+| `message_type` | string | Yes | `text` or `system` |
+
+### Example
+
+```javascript
+const messageId = crypto.randomUUID();
+
+ws.send(JSON.stringify({
+  type: 'message',
+  conversation_id: 'conv-123',
+  payload: {
+    message_id: messageId,
+    content: 'Hello, everyone!',
+    message_type: 'text'
+  }
+}));
+```
+
+## Receiving Messages
+
+Messages are broadcast to all room members:
+
+```json
+{
+  "type": "message",
+  "conversation_id": "uuid",
+  "payload": {
+    "message_id": "uuid",
+    "sender_id": "user-uuid",
+    "sender_type": "sdk",
+    "content": "Hello, world!",
+    "message_type": "text",
+    "sent_at": "2024-01-01T00:00:00Z",
+    "metadata": {}
+  }
+}
+```
+
+### Broadcast Payload Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `message_id` | string | Unique message ID |
+| `sender_id` | string | Sender's user ID |
+| `sender_type` | string | `sdk`, `api`, `bot`, `agent` |
+| `content` | string | Message content |
+| `message_type` | string | `text` or `system` |
+| `sent_at` | string | ISO 8601 timestamp |
+| `metadata` | object | Custom metadata |
+
+## Message Lifecycle
+
+```
+1. Client sends message → message_id generated client-side
+2. Server validates & persists → Publishes to Redis
+3. Server broadcasts to room → All members receive
+4. Recipient receives → Delivery receipt sent
+5. Recipient reads → Read receipt sent
+```
+
+## Optimistic Updates
+
+Generate `message_id` client-side for optimistic UI updates:
+
+```javascript
+function sendMessage(conversationId, content) {
+  const messageId = crypto.randomUUID();
+  
+  // Optimistic update - show message immediately
+  displayMessage({
+    id: messageId,
+    content,
+    status: 'sending'
+  });
+  
+  // Send to server
+  ws.send(JSON.stringify({
+    type: 'message',
+    conversation_id: conversationId,
+    payload: {
+      message_id: messageId,
+      content,
+      message_type: 'text'
+    }
+  }));
+}
+
+// When server echo arrives, update status
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  if (msg.type === 'message') {
+    updateMessageStatus(msg.payload.message_id, 'sent');
+  }
+};
+```
+
+## Message Deduplication
+
+The server uses `message_id` for deduplication:
+
+- Same `message_id` won't be broadcast twice
+- Client should track seen message IDs
+- Reconcile optimistic messages with server echoes
+
+```javascript
+const seenMessages = new Set();
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  
+  if (msg.type === 'message') {
+    const messageId = msg.payload.message_id;
+    
+    if (seenMessages.has(messageId)) {
+      // Already seen, might be reconciling optimistic message
+      updateMessageStatus(messageId, 'sent');
+    } else {
+      seenMessages.add(messageId);
+      displayMessage(msg.payload);
+    }
+  }
+};
+```
+
+## Message Types
+
+### Text Message
+
+Regular user message:
+
+```json
+{
+  "type": "message",
+  "conversation_id": "uuid",
+  "payload": {
+    "message_id": "uuid",
+    "content": "Hello!",
+    "message_type": "text"
+  }
+}
+```
+
+### System Message
+
+System-generated message:
+
+```json
+{
+  "type": "message",
+  "conversation_id": "uuid",
+  "payload": {
+    "message_id": "uuid",
+    "content": "User joined the conversation",
+    "message_type": "system"
+  }
+}
+```
+
+## Complete Example
+
+```javascript
+class MessageHandler {
+  constructor(ws) {
+    this.ws = ws;
+    this.seenMessages = new Set();
+    this.pendingMessages = new Map();
+    
+    this.ws.onmessage = this.handleMessage.bind(this);
+  }
+  
+  send(conversationId, content) {
+    const messageId = crypto.randomUUID();
+    
+    // Track pending message
+    this.pendingMessages.set(messageId, {
+      content,
+      status: 'sending',
+      timestamp: Date.now()
+    });
+    
+    // Notify UI
+    this.onMessage?.({
+      id: messageId,
+      content,
+      status: 'sending',
+      isOptimistic: true
+    });
+    
+    // Send to server
+    this.ws.send(JSON.stringify({
+      type: 'message',
+      conversation_id: conversationId,
+      payload: {
+        message_id: messageId,
+        content,
+        message_type: 'text'
+      }
+    }));
+    
+    return messageId;
+  }
+  
+  handleMessage(event) {
+    const msg = JSON.parse(event.data);
+    
+    if (msg.type !== 'message') return;
+    
+    const payload = msg.payload;
+    const messageId = payload.message_id;
+    
+    // Check if this is a reconciliation of our pending message
+    if (this.pendingMessages.has(messageId)) {
+      this.pendingMessages.delete(messageId);
+      this.seenMessages.add(messageId);
+      
+      this.onMessage?.({
+        id: messageId,
+        ...payload,
+        status: 'sent',
+        isOptimistic: false
+      });
+      return;
+    }
+    
+    // Check for duplicates
+    if (this.seenMessages.has(messageId)) {
+      return;
+    }
+    
+    this.seenMessages.add(messageId);
+    
+    // New message from another user
+    this.onMessage?.({
+      id: messageId,
+      ...payload,
+      status: 'sent',
+      isOptimistic: false
+    });
+  }
+}
+
+// Usage
+const handler = new MessageHandler(ws);
+
+handler.onMessage = (message) => {
+  console.log(`[${message.status}] ${message.sender_id}: ${message.content}`);
+};
+
+handler.send('conv-123', 'Hello, world!');
+```
+
+## Error Handling
+
+### Missing conversation_id
+
+```json
+{
+  "type": "error",
+  "error": "conversation_id is required"
+}
+```
+
+### Not in Room
+
+```json
+{
+  "type": "error",
+  "error": "Not a member of this conversation"
+}
+```
+
+### Invalid Message
+
+```json
+{
+  "type": "error",
+  "error": "message_id is required"
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Typing" icon="keyboard" href="/websocket/typing">
+    Typing indicators
+  </Card>
+  <Card title="Receipts" icon="check" href="/websocket/receipts">
+    Read receipts
+  </Card>
+  <Card title="Rooms" icon="door-open" href="/websocket/rooms">
+    Room management
+  </Card>
+  <Card title="SDK Messaging" icon="code" href="/sdk/messaging">
+    SDK messaging guide
+  </Card>
+</CardGroup>

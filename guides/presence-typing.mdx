@@ -1,0 +1,225 @@
+---
+title: "Presence & Typing"
+description: "User presence and typing indicators in ChaterAfrika"
+---
+
+## Overview
+
+ChaterAfrika provides real-time presence tracking and typing indicators to enhance the chat experience.
+
+## Presence
+
+### What is Presence?
+
+Presence tracks whether users are online or offline. It's automatically managed based on WebSocket connection state.
+
+### Presence States
+
+| State | Description |
+|-------|-------------|
+| `online` | User is connected to WebSocket |
+| `offline` | User has disconnected |
+
+### Automatic Management
+
+- **Connect** → User automatically marked `online`
+- **Disconnect** → User automatically marked `offline`
+- **Reconnect** → User marked `online` again
+
+No manual presence updates required!
+
+### Using with SDK
+
+```typescript
+// Listen for presence at SDK level
+client.on('presence', (event) => {
+  console.log(`${event.userId} is ${event.state}`);
+});
+
+// Or at conversation level
+const conversation = client.conversations.get('conv-id');
+conversation.on('presence', (event) => {
+  console.log(`${event.userId} is ${event.state}`);
+});
+```
+
+## Typing Indicators
+
+### What are Typing Indicators?
+
+Typing indicators show when a user is composing a message. They are conversation-scoped and automatically expire.
+
+### Automatic Expiration
+
+Typing indicators expire after **5 seconds**. If the user is still typing, the SDK/client should resend to keep the indicator alive.
+
+### Using with SDK
+
+```typescript
+const conversation = client.conversations.get('conv-id');
+
+// Start typing
+conversation.startTyping();
+
+// Stop typing (or just wait for auto-expiry)
+conversation.stopTyping();
+
+// Listen for typing events
+conversation.on('typing', (event) => {
+  if (event.state === 'start') {
+    console.log(`${event.userId} is typing...`);
+  } else {
+    console.log(`${event.userId} stopped typing`);
+  }
+});
+```
+
+## Best Practices
+
+### Presence
+
+<CardGroup cols={2}>
+  <Card title="Debounce UI Updates" icon="clock">
+    Debounce updates to prevent flickering during reconnection.
+  </Card>
+  <Card title="Cache State" icon="database">
+    Cache presence state for quick lookups.
+  </Card>
+</CardGroup>
+
+### Typing
+
+<CardGroup cols={2}>
+  <Card title="Debounce Input" icon="clock">
+    Don't send on every keystroke. Debounce to reduce traffic.
+  </Card>
+  <Card title="Stop on Send" icon="paper-plane">
+    Always stop typing before sending a message.
+  </Card>
+  <Card title="Auto-stop Timeout" icon="hourglass">
+    Stop typing after 2-3 seconds of inactivity.
+  </Card>
+  <Card title="Visual Feedback" icon="eye">
+    Show subtle animation like "..." to indicate typing.
+  </Card>
+</CardGroup>
+
+## Complete Example
+
+```typescript
+import { ChatAfrika } from '@chatafrika/sdk';
+
+class ChatWithPresenceAndTyping {
+  private client: ChatAfrika;
+  private onlineUsers = new Set<string>();
+  private typingUsers = new Map<string, Set<string>>();
+  private typingTimeout: NodeJS.Timeout | null = null;
+
+  async initialize(token: string) {
+    this.client = new ChatAfrika({
+      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      token
+    });
+
+    // Track presence
+    this.client.on('presence', (event) => {
+      if (event.state === 'online') {
+        this.onlineUsers.add(event.userId);
+      } else {
+        this.onlineUsers.delete(event.userId);
+      }
+      this.updatePresenceUI();
+    });
+
+    await this.client.connect();
+  }
+
+  async joinConversation(conversationId: string) {
+    await this.client.conversations.join(conversationId);
+    const conversation = this.client.conversations.get(conversationId);
+
+    // Track typing for this conversation
+    conversation.on('typing', (event) => {
+      let users = this.typingUsers.get(conversationId);
+      if (!users) {
+        users = new Set();
+        this.typingUsers.set(conversationId, users);
+      }
+
+      if (event.state === 'start') {
+        users.add(event.userId);
+      } else {
+        users.delete(event.userId);
+      }
+      this.updateTypingUI(conversationId);
+    });
+
+    return conversation;
+  }
+
+  // Call on input change
+  handleTyping(conversationId: string) {
+    const conversation = this.client.conversations.get(conversationId);
+    conversation.startTyping();
+
+    // Auto-stop after 2 seconds of inactivity
+    if (this.typingTimeout) {
+      clearTimeout(this.typingTimeout);
+    }
+    this.typingTimeout = setTimeout(() => {
+      conversation.stopTyping();
+    }, 2000);
+  }
+
+  // Call before sending message
+  sendMessage(conversationId: string, content: string) {
+    const conversation = this.client.conversations.get(conversationId);
+    
+    // Stop typing
+    if (this.typingTimeout) {
+      clearTimeout(this.typingTimeout);
+    }
+    conversation.stopTyping();
+    
+    // Send message
+    conversation.sendMessage(content);
+  }
+
+  isOnline(userId: string): boolean {
+    return this.onlineUsers.has(userId);
+  }
+
+  getTypingUsers(conversationId: string): string[] {
+    const users = this.typingUsers.get(conversationId);
+    return users ? Array.from(users) : [];
+  }
+
+  private updatePresenceUI() {
+    console.log('Online users:', Array.from(this.onlineUsers));
+  }
+
+  private updateTypingUI(conversationId: string) {
+    const users = this.getTypingUsers(conversationId);
+    if (users.length > 0) {
+      console.log(`${users.join(', ')} typing in ${conversationId}`);
+    }
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="SDK Presence" icon="user" href="/sdk/presence">
+    Detailed SDK presence guide
+  </Card>
+  <Card title="SDK Typing" icon="keyboard" href="/sdk/typing">
+    Detailed SDK typing guide
+  </Card>
+  <Card title="WebSocket Presence" icon="plug" href="/websocket/presence">
+    WebSocket presence protocol
+  </Card>
+  <Card title="WebSocket Typing" icon="keyboard" href="/websocket/typing">
+    WebSocket typing protocol
+  </Card>
+</CardGroup>

@@ -1,0 +1,294 @@
+---
+title: "SDK Typing Indicators"
+description: "Typing indicators with the ChaterAfrika SDK"
+---
+
+## Overview
+
+Typing indicators show when a user is composing a message. The SDK provides conversation-scoped typing with automatic expiration.
+
+## Sending Typing Indicators
+
+### Start Typing
+
+```typescript
+const conversation = client.conversations.get('conversation-id');
+
+// Start typing indicator
+conversation.startTyping();
+```
+
+### Stop Typing
+
+```typescript
+// Stop typing indicator
+conversation.stopTyping();
+```
+
+## Receiving Typing Indicators
+
+```typescript
+const conversation = client.conversations.get('conversation-id');
+
+conversation.on('typing', (event) => {
+  console.log('User:', event.userId);
+  console.log('State:', event.state); // 'start' | 'stop'
+  
+  if (event.state === 'start') {
+    showTypingIndicator(event.userId);
+  } else {
+    hideTypingIndicator(event.userId);
+  }
+});
+```
+
+## Typing Event
+
+```typescript
+interface TypingEvent {
+  userId: string;
+  state: 'start' | 'stop';
+}
+```
+
+## Automatic Expiration
+
+Typing indicators automatically expire after 5 seconds. You don't need to manually stop them:
+
+```typescript
+// User starts typing
+conversation.startTyping();
+
+// If user doesn't call startTyping() again within 5 seconds,
+// a 'stop' event is automatically emitted to other users
+```
+
+To keep the typing indicator alive during continuous typing, call `startTyping()` periodically:
+
+```typescript
+let typingInterval: NodeJS.Timeout | null = null;
+
+function handleInputChange() {
+  // Send typing_start immediately
+  conversation.startTyping();
+  
+  // Clear any existing interval
+  if (typingInterval) {
+    clearInterval(typingInterval);
+  }
+  
+  // Keep sending typing_start every 4 seconds while typing
+  typingInterval = setInterval(() => {
+    conversation.startTyping();
+  }, 4000);
+}
+
+function handleInputBlur() {
+  // Stop typing when input loses focus
+  if (typingInterval) {
+    clearInterval(typingInterval);
+    typingInterval = null;
+  }
+  conversation.stopTyping();
+}
+```
+
+## Complete Input Handler
+
+```typescript
+class TypingHandler {
+  private conversation: Conversation;
+  private typingTimeout: NodeJS.Timeout | null = null;
+  private isTyping = false;
+
+  constructor(conversation: Conversation) {
+    this.conversation = conversation;
+  }
+
+  handleInput() {
+    // Start typing if not already
+    if (!this.isTyping) {
+      this.isTyping = true;
+      this.conversation.startTyping();
+    }
+
+    // Reset the stop timeout
+    if (this.typingTimeout) {
+      clearTimeout(this.typingTimeout);
+    }
+
+    // Stop typing after 2 seconds of inactivity
+    this.typingTimeout = setTimeout(() => {
+      this.stop();
+    }, 2000);
+  }
+
+  handleSend() {
+    // Stop typing when message is sent
+    this.stop();
+  }
+
+  private stop() {
+    if (this.isTyping) {
+      this.isTyping = false;
+      this.conversation.stopTyping();
+    }
+    if (this.typingTimeout) {
+      clearTimeout(this.typingTimeout);
+      this.typingTimeout = null;
+    }
+  }
+}
+
+// Usage
+const typing = new TypingHandler(conversation);
+
+inputElement.addEventListener('input', () => typing.handleInput());
+form.addEventListener('submit', () => typing.handleSend());
+```
+
+## React Integration
+
+```tsx
+import { useState, useEffect, useCallback } from 'react';
+import { Conversation } from '@chatafrika/sdk';
+
+function useTyping(conversation: Conversation) {
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+
+  useEffect(() => {
+    const handleTyping = (event: { userId: string; state: 'start' | 'stop' }) => {
+      setTypingUsers(prev => {
+        if (event.state === 'start') {
+          return prev.includes(event.userId) ? prev : [...prev, event.userId];
+        } else {
+          return prev.filter(id => id !== event.userId);
+        }
+      });
+    };
+
+    conversation.on('typing', handleTyping);
+
+    return () => {
+      conversation.off('typing', handleTyping);
+    };
+  }, [conversation]);
+
+  return typingUsers;
+}
+
+function useTypingInput(conversation: Conversation) {
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isTypingRef = useRef(false);
+
+  const handleInput = useCallback(() => {
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      conversation.startTyping();
+    }
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      conversation.stopTyping();
+    }, 2000);
+  }, [conversation]);
+
+  const handleSend = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    isTypingRef.current = false;
+    conversation.stopTyping();
+  }, [conversation]);
+
+  return { handleInput, handleSend };
+}
+
+// Usage
+function ChatInput({ conversation }) {
+  const [input, setInput] = useState('');
+  const typingUsers = useTyping(conversation);
+  const { handleInput, handleSend } = useTypingInput(conversation);
+
+  const onSubmit = (e) => {
+    e.preventDefault();
+    if (input.trim()) {
+      handleSend();
+      conversation.sendMessage(input);
+      setInput('');
+    }
+  };
+
+  return (
+    <div>
+      {typingUsers.length > 0 && (
+        <div className="typing-indicator">
+          {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
+        </div>
+      )}
+      <form onSubmit={onSubmit}>
+        <input
+          value={input}
+          onChange={(e) => {
+            setInput(e.target.value);
+            handleInput();
+          }}
+          placeholder="Type a message..."
+        />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  );
+}
+```
+
+## Display Typing Users
+
+```typescript
+function formatTypingMessage(userIds: string[], userNames: Map<string, string>): string {
+  const names = userIds.map(id => userNames.get(id) || 'Someone');
+  
+  if (names.length === 0) return '';
+  if (names.length === 1) return `${names[0]} is typing...`;
+  if (names.length === 2) return `${names[0]} and ${names[1]} are typing...`;
+  return `${names[0]}, ${names[1]}, and ${names.length - 2} others are typing...`;
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Debounce Input" icon="clock">
+    Don't send typing_start on every keystroke. Debounce to reduce traffic.
+  </Card>
+  <Card title="Stop on Send" icon="paper-plane">
+    Always call stopTyping() before sending a message.
+  </Card>
+  <Card title="Auto-stop" icon="hourglass">
+    Use a timeout to stop typing after inactivity (2-3 seconds).
+  </Card>
+  <Card title="Visual Feedback" icon="eye">
+    Show a subtle animation like "..." to indicate typing.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Receipts" icon="check" href="/sdk/receipts">
+    Read receipts
+  </Card>
+  <Card title="Presence" icon="user" href="/sdk/presence">
+    Online/offline status
+  </Card>
+  <Card title="Messaging" icon="message" href="/sdk/messaging">
+    Sending messages
+  </Card>
+  <Card title="Examples" icon="code" href="/sdk/examples">
+    Complete examples
+  </Card>
+</CardGroup>
