@@ -117,38 +117,23 @@ When the access token expires, use the refresh token to obtain a new access toke
 }
 ```
 
-## SDK Token Exchange
+## SDK Token Issuance (Backend Only)
 
-For client applications, exchange SDK credentials for a JWT token to connect to WebSocket.
+Your **backend** issues SDK tokens for your frontend. The frontend **never** sees App ID, public key, or secret key—only the token.
 
-<ParamField body="app_id" type="string" required>
-  Your app ID (from dashboard)
-</ParamField>
+**Endpoint:** `POST /api/v1/apps/:appId/tokens`
 
-<ParamField body="app_secret" type="string" required>
-  Your app secret (from dashboard)
-</ParamField>
+**Auth:** Either **JWT** (`Authorization: Bearer <token>`) or **API key** (`X-Api-Key` + `X-Api-Secret`).
 
-<ParamField body="user_id" type="string" required>
-  Customer/user identifier in your system
-</ParamField>
+**Body:** `{ "external_user_id": "user_123", "name": "Jane", "email": "jane@example.com" }`
 
-**Endpoint:** `POST /api/v1/auth/sdk-token`
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "expires_in": 900
-  }
-}
-```
+**Response:** `{ "token", "expires_in", "user_id" }`
 
 <Warning>
-SDK tokens are short-lived (15 minutes). Implement token refresh in your application.
+**App ID, public key, and secret key are backend-only.** Store them on your backend. Your frontend receives only the **token** from your backend. Never expose keys to the frontend.
 </Warning>
+
+See [Issue SDK Token](/api-reference/apps/issue-token) for the full API reference.
 
 ## Using Access Tokens
 
@@ -161,27 +146,23 @@ curl https://api.chaterafrika.com/api/v1/conversations \
 
 ## Using SDK Tokens
 
-SDK tokens are used for WebSocket connections:
+Your **frontend** receives the token from **your backend** (which calls `POST /apps/:id/tokens`). Use it with the SDK or WebSocket—never use keys in the frontend.
 
 ```typescript
-// Using the SDK
+// Token from your backend
 const client = new ChatAfrika({
-  apiUrl: 'https://api.chaterafrika.com',
-  wsUrl: 'wss://ws.dev.chaterafrika.com',
-  sdkToken: 'YOUR_SDK_TOKEN'
+  wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+  token
 });
 
 await client.connect();
 ```
 
-Or manually:
+Or manually with WebSocket (browsers use Sec-WebSocket-Protocol):
 
 ```javascript
-const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', {
-  headers: {
-    'Authorization': `Bearer ${sdkToken}`
-  }
-});
+// Token from your backend
+const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', [token]);
 ```
 
 ## Token Structure
@@ -203,10 +184,9 @@ const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', {
 
 ```json
 {
-  "sub": "user-id",
-  "tenant_id": "tenant-id",
-  "app_id": "app-id",
-  "aud": "chaterafrika-sdk",
+  "sub": "external_user_id",
+  "app_id": "app-uuid",
+  "type": "sdk_user",
   "iat": 1234567890,
   "exp": 1234568790
 }
@@ -267,8 +247,11 @@ const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', {
   <Card title="API Reference" icon="terminal" href="/api-reference/auth/register">
     View all authentication endpoints
   </Card>
-  <Card title="SDK Guide" icon="code" href="/guides/sdk/authentication">
-    Learn SDK authentication
+  <Card title="SDK Auth" icon="code" href="/sdk/authentication">
+    SDK authentication
+  </Card>
+  <Card title="Issue Token" icon="key" href="/api-reference/apps/issue-token">
+    POST /apps/:id/tokens
   </Card>
   <Card title="WebSocket Auth" icon="bolt" href="/websocket/authentication">
     WebSocket authentication

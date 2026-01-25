@@ -175,8 +175,8 @@ import { ChatAfrika } from '@chatafrika/sdk';
 
 async function chatExample() {
   const client = new ChatAfrika({
-    wsUrl: 'wss://ws.dev.chaterafrika.com',
-    token: 'your-sdk-token'
+    wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+    token // from your backend (POST /apps/:id/tokens)
   });
 
   // Connect

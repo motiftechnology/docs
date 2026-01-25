@@ -46,8 +46,9 @@
 - [x] API Introduction (`api-reference/introduction.mdx`) - **Fixed**
 - [x] Register (`api-reference/auth/register.mdx`)
 - [x] Login (`api-reference/auth/login.mdx`)
-- [x] SDK Token (`api-reference/auth/sdk-token.mdx`)
-- [x] Create Conversation (`api-reference/conversations/create.mdx`)
+- [x] SDK Token (`api-reference/auth/sdk-token.mdx`) — **Deprecated**; use [Issue SDK Token](/api-reference/apps/issue-token) (`POST /apps/:id/tokens`) instead
+- [x] Issue SDK Token (`api-reference/apps/issue-token.mdx`) — **NEW** (JWT or API key; backend-only keys, frontend uses tokens)
+- [x] Create Conversation (`api-reference/conversations/create.mdx`) — **Updated** with `external` type, `external_id`, `participants`
 
 ## 📋 Still To Do
 
@@ -100,6 +101,8 @@
 3. **Complete SDK & WebSocket Docs**: Created all missing SDK and WebSocket documentation pages
 
 4. **Warning Banner**: Added clear warning about WebSocket-only messaging in API introduction and quickstart
+
+5. **SDK / token flow (Jan 2025)**: `POST /auth/sdk-token` deprecated. Use `POST /apps/:id/tokens` (JWT or API key). App ID, public key, and secret key are **backend-only**; frontend receives only **tokens** from your backend. Create conversations support **EXTERNAL** type with `external_id` and `participants`.
 
 ## 📝 Notes
 

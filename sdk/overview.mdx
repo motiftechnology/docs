@@ -28,10 +28,10 @@ npm install @chatafrika/sdk
 ```typescript
 import { ChatAfrika } from '@chatafrika/sdk';
 
-// Initialize SDK
+// Token from your backend (POST /apps/:id/tokens)—never keys
 const client = new ChatAfrika({
-  wsUrl: 'wss://ws.dev.chaterafrika.com',
-  token: 'your-sdk-token',
+  wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+  token,
   debug: true
 });
 
@@ -139,8 +139,8 @@ interface ClientConfig {
 import { ChatAfrika } from '@chatafrika/sdk';
 
 const client = new ChatAfrika({
-  wsUrl: 'wss://ws.dev.chaterafrika.com',
-  token: 'your-sdk-token'
+  wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+  token // from your backend
 });
 
 // Connection
@@ -285,8 +285,8 @@ import { ChatAfrika } from '@chatafrika/sdk';
 async function initializeChat() {
   // Initialize SDK
   const client = new ChatAfrika({
-    wsUrl: 'wss://ws.dev.chaterafrika.com',
-    token: 'your-sdk-token',
+    wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+    token, // from your backend
     debug: true
   });
 

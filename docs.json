@@ -97,7 +97,8 @@
               "api-reference/apps/list",
               "api-reference/apps/get",
               "api-reference/apps/update",
-              "api-reference/apps/delete"
+              "api-reference/apps/delete",
+              "api-reference/apps/issue-token"
             ]
           },
           {

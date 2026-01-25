@@ -89,9 +89,9 @@ class ChatApp {
   }
 }
 
-// Usage
+// Usage (token from your backend)
 const app = new ChatApp();
-await app.initialize('your-sdk-token');
+await app.initialize(token);
 await app.joinConversation('conv-123');
 app.sendMessage('conv-123', 'Hello, world!');
 ```
@@ -425,9 +425,9 @@ class SupportWidget {
   }
 }
 
-// Usage
+// Usage (token from your backend)
 const widget = new SupportWidget('chat-container');
-widget.initialize('sdk-token', 'conversation-id');
+widget.initialize(token, 'conversation-id');
 ```
 
 ## Multi-Conversation Manager
@@ -524,7 +524,7 @@ const manager = new MultiChatManager((convId) => {
   console.log(`Conversation ${convId} updated`);
 });
 
-await manager.initialize('sdk-token');
+await manager.initialize(token); // from your backend
 await manager.addConversation('conv-1');
 await manager.addConversation('conv-2');
 

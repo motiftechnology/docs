@@ -9,85 +9,80 @@ WebSocket connections require an SDK token for authentication. The token is vali
 
 ## Connection with Token
 
-### Using Authorization Header
+### Using Sec-WebSocket-Protocol (browsers)
+
+Browsers cannot set custom headers on WebSocket. Pass the token as a subprotocol (from your backend):
+
+```javascript
+const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', [token]);
+```
+
+### Using Authorization Header (Node.js)
+
+When using a WebSocket client that supports custom headers:
 
 ```javascript
 const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', {
-  headers: {
-    'Authorization': `Bearer ${sdkToken}`
-  }
+  headers: { 'Authorization': `Bearer ${token}` }
 });
-```
-
-### Using Sec-WebSocket-Protocol
-
-For browsers that don't support custom headers:
-
-```javascript
-const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', [sdkToken]);
 ```
 
 ### Using Query Parameter
 
 ```javascript
-const ws = new WebSocket(`wss://ws.dev.chaterafrika.com/ws?token=${sdkToken}`);
+const ws = new WebSocket(`wss://ws.dev.chaterafrika.com/ws?token=${token}`);
 ```
 
 ## Token Validation
 
 The server validates:
 
-1. **Token signature** - Valid JWT signature
-2. **Token expiration** - Not expired (15 min lifetime)
-3. **Token type** - Must be `sdk` type
-4. **Tenant context** - Valid tenant_id claim
+1. **Token signature** — Valid JWT signature
+2. **Token expiration** — Not expired (e.g. 24h lifetime)
+3. **Token type** — SDK token (e.g. `sdk_user`)
+4. **App/tenant context** — Valid app and tenant
 
 ## Token Claims
 
 ```json
 {
-  "sub": "user-uuid",          // User ID
-  "tenant_id": "tenant-uuid",  // Tenant ID
-  "app_id": "app-uuid",        // App ID
-  "type": "sdk",               // Token type (must be 'sdk')
-  "exp": 1234567890,           // Expiration timestamp
-  "iat": 1234567890            // Issued at timestamp
+  "sub": "external_user_id",
+  "app_id": "app-uuid",
+  "type": "sdk_user",
+  "exp": 1234567890,
+  "iat": 1234567890
 }
 ```
 
 ## Authentication Flow
 
 ```
-1. User authenticates with REST API → Get access token
-2. Exchange access token for SDK token → Get SDK token (15 min)
-3. Connect to WebSocket with SDK token
+1. Your backend calls POST /apps/:id/tokens (JWT or X-Api-Key + X-Api-Secret)
+2. Your backend returns the token to your frontend (never keys)
+3. Frontend connects to WebSocket with the token
 4. Server validates token → Connection established
-5. Token expires → Reconnect with new token
+5. Token expires → Reconnect with new token from your backend
 ```
 
-## Getting an SDK Token
+<Warning>
+**App ID, public key, and secret key are backend-only.** Your frontend receives only the **token** from your backend. Never expose keys to the frontend.
+</Warning>
 
-### Step 1: Login
+## Getting an SDK Token (Backend)
+
+Your **backend** issues tokens via `POST /api/v1/apps/:appId/tokens`. See [Issue SDK Token](/api-reference/apps/issue-token).
+
+**API key (server-to-server):**
 
 ```bash
-curl -X POST https://api.chaterafrika.com/api/v1/auth/login \
+curl -X POST https://api.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "password"
-  }'
+  -H "X-Api-Key: pk_xxxxx" \
+  -H "X-Api-Secret: sk_xxxxx" \
+  -d '{"external_user_id": "user_123", "name": "Jane", "email": "jane@example.com"}'
 ```
 
-### Step 2: Exchange for SDK Token
-
-```bash
-curl -X POST https://api.chaterafrika.com/api/v1/auth/sdk-token \
-  -H "Authorization: Bearer ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "app_id": "your-app-id"
-  }'
-```
+**JWT:** Use `Authorization: Bearer <access_token>` instead of API key headers. Return `data.token` to your frontend.
 
 ## Error Handling
 
@@ -153,10 +148,9 @@ class WebSocketManager {
   }
 
   private async fetchNewToken(): Promise<string> {
-    // Call your backend to get a new SDK token
-    const response = await fetch('/api/sdk-token');
-    const { sdk_token } = await response.json();
-    return sdk_token;
+    const response = await fetch('/api/sdk-token', { credentials: 'include' });
+    const { token } = await response.json();
+    return token;
   }
 
   private async reconnect(token: string) {
@@ -170,23 +164,22 @@ class WebSocketManager {
 
 ## Using the SDK
 
-The SDK handles authentication automatically:
+Use the **token** from your backend only—never keys:
 
 ```typescript
 import { ChatAfrika } from '@chatafrika/sdk';
 
+// token from your backend (POST /apps/:id/tokens)
 const client = new ChatAfrika({
-  wsUrl: 'wss://ws.dev.chaterafrika.com',
-  token: sdkToken
+  wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+  token
 });
 
-// SDK handles the connection with proper authentication
 await client.connect();
 
-// Handle token expiration
 client.on('error', async (error) => {
-  if (error.message.includes('Token expired')) {
-    const newToken = await fetchNewToken();
+  if (error.message?.includes('Token expired')) {
+    const newToken = await fetch('/api/sdk-token', { credentials: 'include' }).then(r => r.json()).then(d => d.token);
     client.updateToken(newToken);
     await client.connect();
   }
@@ -196,14 +189,14 @@ client.on('error', async (error) => {
 ## Security Best Practices
 
 <CardGroup cols={2}>
-  <Card title="Short Token Lifetime" icon="clock">
-    SDK tokens expire in 15 minutes for security.
+  <Card title="Token Lifetime" icon="clock">
+    SDK tokens are time-bound; refresh via your backend before expiry.
   </Card>
   <Card title="Use HTTPS/WSS" icon="lock">
     Always use secure connections.
   </Card>
-  <Card title="Server-side Exchange" icon="server">
-    Exchange tokens on your backend, not client-side.
+  <Card title="Backend-only Keys" icon="server">
+    App ID, public key, and secret key stay on your backend. Frontend uses tokens only.
   </Card>
   <Card title="Don't Log Tokens" icon="eye-slash">
     Never log tokens in production.

@@ -5,16 +5,27 @@ api: "POST /api/v1/conversations"
 
 ## Overview
 
-Create a new conversation. Supports three types: DIRECT, GROUP, and SUPPORT conversations.
+Create a new conversation. Supports four types: **DIRECT**, **GROUP**, **SUPPORT**, and **EXTERNAL**.
+
+- **DIRECT / GROUP / SUPPORT:** Use `member_ids` (internal users). Creator is OWNER.
+- **EXTERNAL:** Use `external_id` and `participants` (external users from your app, e.g. orders, appointments). Idempotent on `external_id`.
 
 ## Request
 
 <ParamField body="type" type="string" required>
-  Conversation type: `"direct"`, `"group"`, or `"support"`
+  Conversation type: `"direct"`, `"group"`, `"support"`, or `"external"`
 </ParamField>
 
-<ParamField body="member_ids" type="string[]" required>
-  Array of user IDs to add as members
+<ParamField body="member_ids" type="string[]">
+  Array of user UUIDs to add as members. **Required** for DIRECT/GROUP; not used for EXTERNAL.
+</ParamField>
+
+<ParamField body="external_id" type="string">
+  Your app’s ID (e.g. order, appointment, ticket). **Required** for EXTERNAL; must be unique per tenant.
+</ParamField>
+
+<ParamField body="participants" type="array">
+  Array of `{ external_user_id, role?, name?, email? }`. **Required** for EXTERNAL; at least 2 participants.
 </ParamField>
 
 <ParamField body="title" type="string">
@@ -93,6 +104,31 @@ Customer support conversation with routing capabilities.
   "department_id": "department-id"
 }
 ```
+
+### EXTERNAL Conversation
+
+Conversations owned by your app (e.g. orders, appointments, tickets). Participants are external users; no internal `member_ids`.
+
+**Requirements:**
+- `type`: `"external"`
+- `external_id`: Required; your app’s ID (unique per tenant)
+- `participants`: At least 2; each has `external_user_id` (required), and optional `role`, `name`, `email`
+
+**Example:**
+```json
+{
+  "type": "external",
+  "external_id": "appointment_789",
+  "participants": [
+    { "external_user_id": "doctor_123", "role": "doctor", "name": "Dr. Smith", "email": "dr@hospital.com" },
+    { "external_user_id": "patient_456", "role": "patient", "name": "Jane Doe", "email": "jane@example.com" }
+  ]
+}
+```
+
+<Note>
+Idempotent: if a conversation with the same `external_id` exists, the API returns it instead of creating a new one.
+</Note>
 
 ## Example Request
 
@@ -201,12 +237,11 @@ curl -X POST https://api.chaterafrika.com/api/v1/conversations \
 
 ## Business Rules
 
-- Creator is automatically added as OWNER
-- All specified members are added as MEMBER
-- Only one DIRECT conversation can exist between any two users
-- GROUP conversations can have 2-100 members
-- SUPPORT conversations require a customer_id
-- All users must belong to the same tenant
+- **DIRECT/GROUP/SUPPORT:** Creator is automatically added as OWNER; specified members as MEMBER. All users must belong to the same tenant.
+- **EXTERNAL:** No internal members; participants are external users. Idempotent on `external_id`.
+- Only one DIRECT conversation can exist between any two users.
+- GROUP conversations can have 2-100 members.
+- SUPPORT conversations require a `customer_id`.
 
 ## Next Steps
 

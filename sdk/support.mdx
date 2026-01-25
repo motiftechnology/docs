@@ -91,8 +91,8 @@ import { ChatAfrika } from '@chatafrika/sdk';
 
 async function customerSupportFlow() {
   const client = new ChatAfrika({
-    wsUrl: 'wss://ws.dev.chaterafrika.com',
-    token: 'customer-sdk-token'
+    wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+    token // customer token from your backend
   });
 
   await client.connect();
@@ -133,8 +133,8 @@ import { ChatAfrika } from '@chatafrika/sdk';
 
 async function agentSupportFlow() {
   const client = new ChatAfrika({
-    wsUrl: 'wss://ws.dev.chaterafrika.com',
-    token: 'agent-sdk-token'
+    wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+    token // agent token from your backend
   });
 
   await client.connect();

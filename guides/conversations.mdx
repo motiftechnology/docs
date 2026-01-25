@@ -5,7 +5,7 @@ description: "Understanding and managing conversations in ChaterAfrika"
 
 ## Overview
 
-Conversations are the core unit of communication in ChaterAfrika. They support three types: DIRECT, GROUP, and SUPPORT conversations, each with specific use cases and behaviors.
+Conversations are the core unit of communication in ChaterAfrika. They support four types: **DIRECT**, **GROUP**, **SUPPORT**, and **EXTERNAL**, each with specific use cases and behaviors.
 
 ## Conversation Types
 
@@ -54,6 +54,23 @@ Customer support conversations with routing capabilities.
 - Customer support tickets
 - Help desk conversations
 - Support routing and escalation
+
+### EXTERNAL Conversations (External Chat)
+
+Conversations **owned by your app** (e.g. orders, appointments, tickets). Participants are **external users** from your system—no internal `member_ids`. Ideal for SDK integrations: telemedicine (doctor–patient), e‑commerce (buyer–seller), marketplaces, etc.
+
+**Characteristics:**
+- `external_id`: Your app’s ID (order, appointment, ticket). **Required**; unique per tenant. Idempotent: same `external_id` → same conversation.
+- `participants`: At least 2; each has `external_user_id` (required) and optional `role`, `name`, `email`. Must match the users you pass when issuing SDK tokens.
+- No internal members; you cannot add members via “Add Member.” Use `participants` at creation only.
+
+**Use Cases:**
+- Telemedicine: doctor–patient chat per appointment
+- E‑commerce: buyer–seller chat per order
+- Marketplaces: host–guest, freelancer–client
+- Any 1:1 or small group chat where **your app** owns the context and identities
+
+**Flow:** Your **backend** creates the conversation (`POST /conversations` with `type: "external"`, `external_id`, `participants`). It then issues SDK tokens for each participant (`POST /apps/:id/tokens`) and returns `token` + `conversation_id` to your frontend. The **SDK** joins by `conversation_id` and sends/receives messages. See [Create Conversation](/api-reference/conversations/create) (EXTERNAL) and [Issue SDK Token](/api-reference/apps/issue-token).
 
 ## Creating Conversations
 
@@ -113,6 +130,32 @@ const conversation = await fetch('https://api.chaterafrika.com/api/v1/conversati
 });
 ```
 
+### Create EXTERNAL Conversation (External Chat)
+
+Your backend creates **external** conversations when your business event occurs (e.g. appointment booked, order placed). Use `external_id` (your app’s ID) and `participants` (external users). Idempotent: same `external_id` returns the existing conversation.
+
+```typescript
+const conversation = await fetch('https://api.chaterafrika.com/api/v1/conversations', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    type: 'external',
+    external_id: 'appointment_789',
+    participants: [
+      { external_user_id: 'doctor_123', role: 'doctor', name: 'Dr. Smith', email: 'dr@hospital.com' },
+      { external_user_id: 'patient_456', role: 'patient', name: 'Jane Doe', email: 'jane@example.com' }
+    ]
+  })
+});
+```
+
+<Note>
+`external_user_id` in each participant must match the `external_user_id` you use when issuing SDK tokens (`POST /apps/:id/tokens`) for that user. Your frontend receives `token` + `conversation_id` from your backend, then uses the SDK to join and chat.
+</Note>
+
 ## Managing Conversations
 
 ### List Conversations
@@ -126,7 +169,7 @@ const conversations = await fetch('https://api.chaterafrika.com/api/v1/conversat
 ```
 
 **Query Parameters:**
-- `type` - Filter by type (direct, group, support)
+- `type` - Filter by type (`direct`, `group`, `support`, `external`)
 - `limit` - Number of results (default: 50)
 - `cursor` - Pagination cursor
 
@@ -162,7 +205,7 @@ await fetch(
 ```
 
 <Warning>
-Only OWNER and ADMIN can add members to GROUP conversations. DIRECT conversations cannot have members added.
+Only OWNER and ADMIN can add members to GROUP conversations. DIRECT conversations cannot have members added. **EXTERNAL** conversations cannot have internal members added via this endpoint; participants are set at creation only.
 </Warning>
 
 ### Remove Member from Conversation
@@ -190,27 +233,32 @@ Each conversation has members with roles:
 
 ## Using the SDK
 
+The SDK **does not create** conversations. Your **backend** creates them via `POST /conversations`. The SDK **joins** by `conversation_id` (from your backend) and sends/receives messages over WebSocket.
+
 ```typescript
 import { ChatAfrika } from '@chatafrika/sdk';
 
-const client = new ChatAfrika({ /* config */ });
-
-// Create conversation
-const conversation = await client.conversations.create({
-  type: 'direct',
-  members: ['user-id']
+// token + conversationId from your backend (e.g. after create conv + issue token)
+const client = new ChatAfrika({
+  wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+  token,
+  debug: true
 });
 
-// Join conversation (for real-time updates)
-await client.conversations.join(conversation.id);
+await client.connect();
 
-// Listen for messages
-client.messages.on('message', (message) => {
-  if (message.conversation_id === conversation.id) {
-    console.log('New message:', message);
-  }
+const conversationId = 'conv-uuid'; // from your backend
+const conversation = client.conversations.get(conversationId);
+
+conversation.on('message', (message) => {
+  console.log('New message:', message.content);
 });
+
+await client.conversations.join(conversationId);
+conversation.sendMessage('Hello!');
 ```
+
+For **EXTERNAL** conversations, your backend creates with `type: "external"`, `external_id`, and `participants`, then issues tokens. The frontend uses `token` + `conversation_id` to join and chat. See [Create EXTERNAL](#create-external-conversation-external-chat) and [Issue SDK Token](/api-reference/apps/issue-token).
 
 ## Real-time Updates
 
@@ -228,7 +276,13 @@ When you join a conversation via WebSocket, you'll receive:
     Learn about sending and receiving messages
   </Card>
   <Card title="API Reference" icon="terminal" href="/api-reference/conversations/create">
-    View all conversation endpoints
+    View all conversation endpoints (including EXTERNAL)
+  </Card>
+  <Card title="External Chat" icon="comments" href="/api-reference/conversations/create#external-conversation">
+    Create EXTERNAL conversations (orders, appointments, SDK)
+  </Card>
+  <Card title="Issue SDK Token" icon="key" href="/api-reference/apps/issue-token">
+    Issue tokens for SDK users (external participants)
   </Card>
   <Card title="Support Routing" icon="route" href="/guides/support-routing">
     Support conversation routing

@@ -1,0 +1,155 @@
+---
+title: "Issue SDK Token"
+api: "POST /api/v1/apps/:appId/tokens"
+---
+
+## Overview
+
+Issue a short-lived SDK token for an external user. Use this token in your frontend with the ChatAfrika SDK or WebSocket connection. **Your backend** calls this endpoint; the **frontend** never sees App ID, public key, or secret key—only the token.
+
+<Note>
+**Authenticate with either JWT or API key:**
+- **JWT:** `Authorization: Bearer &lt;access_token&gt;` (dashboard user).
+- **API key:** `X-Api-Key` (pk_…) + `X-Api-Secret` (sk_…). Use only on your backend; never expose the secret to the frontend.
+</Note>
+
+## Path Parameters
+
+<ParamField path="appId" type="string" required>
+  App ID (UUID). Find it in the dashboard Overview, URL, or create-app success modal.
+</ParamField>
+
+## Request Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `Authorization: Bearer <token>` | If using JWT | Dashboard access token |
+| `X-Api-Key` | If using API key | App public key (pk_…) |
+| `X-Api-Secret` | If using API key | App secret key (sk_…) |
+| `Content-Type` | Yes | `application/json` |
+
+## Request Body
+
+<ParamField body="external_user_id" type="string" required>
+  Your app’s user ID (e.g. customer, doctor, patient). Must match participants in the conversation when using `external` or `support` type.
+</ParamField>
+
+<ParamField body="name" type="string">
+  Display name (optional)
+</ParamField>
+
+<ParamField body="email" type="string">
+  Email (optional)
+</ParamField>
+
+<ParamField body="avatar_url" type="string">
+  Avatar URL (optional)
+</ParamField>
+
+## Example Request
+
+### With API key (server-to-server)
+
+```bash
+curl -X POST https://api.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: pk_xxxxx" \
+  -H "X-Api-Secret: sk_xxxxx" \
+  -d '{
+    "external_user_id": "user_123",
+    "name": "Jane Doe",
+    "email": "jane@example.com"
+  }'
+```
+
+### With JWT
+
+```bash
+curl -X POST https://api.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -d '{
+    "external_user_id": "user_123",
+    "name": "Jane Doe"
+  }'
+```
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Request success status
+</ResponseField>
+
+<ResponseField name="data.token" type="string">
+  SDK JWT token (e.g. 24h). Use in frontend with SDK or WebSocket.
+</ResponseField>
+
+<ResponseField name="data.expires_in" type="number">
+  Token expiry in seconds (e.g. 86400 = 24h).
+</ResponseField>
+
+<ResponseField name="data.user_id" type="string">
+  Same as `external_user_id`.
+</ResponseField>
+
+### Success (201)
+
+```json
+{
+  "success": true,
+  "message": "Token issued successfully",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expires_in": 86400,
+    "user_id": "user_123"
+  }
+}
+```
+
+## Using the Token
+
+**Backend:** Call this endpoint (JWT or API key), then return `data.token` to your frontend.
+
+**Frontend:** Use only the token—never keys.
+
+```typescript
+import { ChatAfrika } from '@chatafrika/sdk';
+
+// token from your backend
+const client = new ChatAfrika({
+  wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+  token,
+});
+await client.connect();
+```
+
+## Error Responses
+
+### 401 Unauthorized
+Invalid JWT or API credentials.
+
+### 403 Forbidden
+App disabled or tenant suspended; or app ID in path does not match API key app.
+
+### 404 Not Found
+App not found.
+
+## Security
+
+<Warning>
+**App ID, public key, and secret key are for backend only.** Never expose them to the frontend. The frontend receives only the **token** from your backend.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="WebSocket Auth" icon="bolt" href="/websocket/authentication">
+    WebSocket authentication
+  </Card>
+  <Card title="SDK Auth" icon="code" href="/sdk/authentication">
+    SDK authentication
+  </Card>
+  <Card title="Create Conversation" icon="comments" href="/api-reference/conversations/create">
+    Create conversations (including external)
+  </Card>
+</CardGroup>

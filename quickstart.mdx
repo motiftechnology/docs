@@ -26,8 +26,8 @@ ChaterAfrika is a multi-tenant chat and customer support platform that provides 
 
 Before you begin, you'll need:
 
-- A ChaterAfrika account (contact [support@chaterafrika.com](mailto:support@chaterafrika.com) for access)
-- Your API credentials (API URL and SDK token)
+- A ChaterAfrika account (sign up or contact [support@chaterafrika.com](mailto:support@chaterafrika.com))
+- An **App** (create one in the dashboard). Store **App ID**, **public key**, and **secret key** on your **backend** only.
 - A modern web browser or Node.js environment
 
 ## JavaScript SDK
@@ -42,16 +42,17 @@ npm install @chatafrika/sdk
 
 ### Basic Setup
 
+Your **backend** issues an SDK token via `POST /api/v1/apps/:appId/tokens` (JWT or `X-Api-Key` + `X-Api-Secret`). Your **frontend** receives only the **token**—never keys.
+
 ```typescript
 import { ChatAfrika } from '@chatafrika/sdk';
 
-// Initialize the SDK with your credentials
+// Token from your backend—never use keys in the frontend
 const client = new ChatAfrika({
-  wsUrl: 'wss://ws.dev.chaterafrika.com', // Your WebSocket endpoint
-  token: 'your-sdk-token' // Get this from your dashboard
+  wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+  token
 });
 
-// Connect to WebSocket
 await client.connect();
 ```
 
@@ -138,10 +139,12 @@ client.on('presence', (event) => {
 import { ChatAfrika } from '@chatafrika/sdk';
 
 async function initializeChat() {
-  // Initialize SDK
+  // Token from your backend (POST /apps/:id/tokens)
+  const token = await fetch('/api/sdk-token', { credentials: 'include' }).then(r => r.json()).then(d => d.token);
+
   const client = new ChatAfrika({
-    wsUrl: 'wss://ws.dev.chaterafrika.com',
-    token: 'your-sdk-token',
+    wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+    token,
     debug: true
   });
 
@@ -191,11 +194,9 @@ initializeChat().catch(console.error);
 
 ## REST API
 
-You can interact with ChaterAfrika via REST API for reading data and managing resources.
+Use the REST API for reading data and managing resources. **Dashboard** access uses JWT (login/register). **SDK tokens** are issued by your backend via `POST /apps/:id/tokens` (JWT or API key).
 
-### Authentication
-
-First, authenticate to get your access token:
+### Dashboard authentication (login)
 
 ```bash
 curl -X POST https://api.chaterafrika.com/api/v1/auth/login \
@@ -206,38 +207,15 @@ curl -X POST https://api.chaterafrika.com/api/v1/auth/login \
   }'
 ```
 
-Response:
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": { ... }
-}
-```
+Response: `{ "access_token", "refresh_token", "user" }`.
 
-### Get SDK Token
+### Issue SDK token (backend)
 
-Exchange your access token for an SDK token:
+Your backend calls `POST /api/v1/apps/:appId/tokens` with **JWT** or **API key** (`X-Api-Key` + `X-Api-Secret`). See [Issue SDK Token](/api-reference/apps/issue-token). Return the `token` to your frontend; never expose keys.
 
-```bash
-curl -X POST https://api.chaterafrika.com/api/v1/auth/sdk-token \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "app_id": "your-app-id"
-  }'
-```
+### Make API requests (dashboard)
 
-Response:
-```json
-{
-  "sdk_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
-
-### Make API Requests
-
-Use the access token in subsequent requests:
+Use the **access token** in subsequent requests:
 
 ```bash
 # Get conversations
@@ -255,31 +233,18 @@ curl https://api.chaterafrika.com/api/v1/conversations/{conversationId}/messages
 
 ## WebSocket Connection
 
-For real-time features, connect to the WebSocket service:
+Use the **SDK** (recommended) or connect manually. The **token** comes from your backend; never use keys in the frontend.
 
 ```typescript
-// Using the SDK (recommended)
+// SDK (recommended)
 await client.connect();
 
-// Or manually
-const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', {
-  headers: {
-    'Authorization': `Bearer ${sdkToken}`
-  }
-});
-
+// Or manually (browsers: use Sec-WebSocket-Protocol)
+const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', [token]);
 ws.onopen = () => {
-  // Join a conversation
-  ws.send(JSON.stringify({
-    type: 'join',
-    conversation_id: 'conversation-id'
-  }));
+  ws.send(JSON.stringify({ type: 'join', conversation_id: 'conversation-id' }));
 };
-
-ws.onmessage = (event) => {
-  const message = JSON.parse(event.data);
-  console.log('Received:', message);
-};
+ws.onmessage = (e) => console.log(JSON.parse(e.data));
 ```
 
 ## Next Steps
@@ -303,7 +268,7 @@ ws.onmessage = (event) => {
 
 <AccordionGroup>
   <Accordion title="Where do I get my API credentials?">
-    Contact [support@chaterafrika.com](mailto:support@chaterafrika.com) to get your API URL, WebSocket URL, and SDK token.
+    Sign up, create an **App** in the dashboard, and store **App ID**, **public key**, and **secret key** on your backend. Your frontend receives only **tokens** from your backend via `POST /apps/:id/tokens`. See [Issue SDK Token](/api-reference/apps/issue-token).
   </Accordion>
   <Accordion title="How do I handle errors?">
     The SDK provides error handling. Check the [SDK documentation](/sdk/overview) for error handling patterns.
