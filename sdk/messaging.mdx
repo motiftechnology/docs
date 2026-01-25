@@ -140,7 +140,7 @@ The SDK automatically handles duplicate messages:
 ## Complete Example
 
 ```typescript
-import { ChatAfrika, Message } from '@chatafrika/sdk';
+import { ChatAfrika, Message } from '@chaterafrikang/sdk';
 
 class ChatUI {
   private client: ChatAfrika;
@@ -149,7 +149,7 @@ class ChatUI {
 
   async initialize(token: string, conversationId: string) {
     this.client = new ChatAfrika({
-      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
       token,
       debug: true
     });
@@ -217,7 +217,7 @@ chat.sendMessage('Hello, world!');
 
 ```tsx
 import { useState, useEffect, useCallback } from 'react';
-import { ChatAfrika, Message, Conversation } from '@chatafrika/sdk';
+import { ChatAfrika, Message, Conversation } from '@chaterafrikang/sdk';
 
 function useMessages(client: ChatAfrika, conversationId: string) {
   const [messages, setMessages] = useState<Message[]>([]);

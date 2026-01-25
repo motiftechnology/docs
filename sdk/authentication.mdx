@@ -35,7 +35,7 @@ Your **backend** issues tokens via `POST /api/v1/apps/:appId/tokens`.
 ### Option A: API key (server-to-server)
 
 ```bash
-curl -X POST https://api.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
+curl -X POST https://dev.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: pk_xxxxx" \
   -H "X-Api-Secret: sk_xxxxx" \
@@ -49,7 +49,7 @@ curl -X POST https://api.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
 ### Option B: JWT (dashboard user)
 
 ```bash
-curl -X POST https://api.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
+curl -X POST https://dev.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -d '{
@@ -63,7 +63,7 @@ curl -X POST https://api.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
 ## Initialize SDK (Frontend)
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
 // token from your backend—never keys
 const client = new ChatAfrika({
@@ -185,7 +185,7 @@ Your backend calls `POST /apps/:id/tokens` (JWT or API key), then returns the to
 app.post('/api/sdk-token', async (req, res) => {
   const user = await verifySession(req); // your auth
   
-  const r = await fetch(`https://api.chaterafrika.com/api/v1/apps/${process.env.APP_ID}/tokens`, {
+  const r = await fetch(`https://dev.chaterafrika.com/api/v1/apps/${process.env.APP_ID}/tokens`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -211,7 +211,7 @@ await client.connect();
 ## Complete Example
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
 class ChatService {
   private client: ChatAfrika | null = null;
@@ -222,7 +222,7 @@ class ChatService {
     
     // Initialize client
     this.client = new ChatAfrika({
-      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
       token,
       debug: true
     });

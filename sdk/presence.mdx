@@ -89,7 +89,7 @@ function updateOnlineUsersList() {
 
 ```tsx
 import { useState, useEffect } from 'react';
-import { ChatAfrika, PresenceEvent } from '@chatafrika/sdk';
+import { ChatAfrika, PresenceEvent } from '@chaterafrikang/sdk';
 
 function usePresence(client: ChatAfrika) {
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
@@ -147,7 +147,7 @@ class ChatUI {
 
   async initialize(token: string) {
     this.client = new ChatAfrika({
-      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
       token
     });
 
@@ -211,7 +211,7 @@ Presence events are deduplicated by the SDK. You'll only receive an event when t
 ## Complete Example
 
 ```typescript
-import { ChatAfrika, PresenceEvent } from '@chatafrika/sdk';
+import { ChatAfrika, PresenceEvent } from '@chaterafrikang/sdk';
 
 class PresenceManager {
   private client: ChatAfrika;
@@ -258,7 +258,7 @@ class PresenceManager {
 
 // Usage
 const client = new ChatAfrika({
-  wsUrl: 'wss://ws.dev.chaterafrika.com',
+  wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
   token: 'your-token'
 });
 

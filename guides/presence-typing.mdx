@@ -107,7 +107,7 @@ conversation.on('typing', (event) => {
 ## Complete Example
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
 class ChatWithPresenceAndTyping {
   private client: ChatAfrika;
@@ -117,7 +117,7 @@ class ChatWithPresenceAndTyping {
 
   async initialize(token: string) {
     this.client = new ChatAfrika({
-      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
       token
     });
 

@@ -236,7 +236,7 @@ Each conversation has members with roles:
 The SDK **does not create** conversations. Your **backend** creates them via `POST /conversations`. The SDK **joins** by `conversation_id` (from your backend) and sends/receives messages over WebSocket.
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
 // token + conversationId from your backend (e.g. after create conv + issue token)
 const client = new ChatAfrika({

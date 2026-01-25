@@ -37,15 +37,17 @@ The easiest way to integrate ChaterAfrika into your application is using our Jav
 ### Installation
 
 ```bash
-npm install @chatafrika/sdk
+npm install @chaterafrikang/sdk
 ```
+
+For **testing** (beta): `npm install @chaterafrikang/sdk@beta`
 
 ### Basic Setup
 
 Your **backend** issues an SDK token via `POST /api/v1/apps/:appId/tokens` (JWT or `X-Api-Key` + `X-Api-Secret`). Your **frontend** receives only the **token**—never keys.
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
 // Token from your backend—never use keys in the frontend
 const client = new ChatAfrika({
@@ -136,7 +138,7 @@ client.on('presence', (event) => {
 ### Complete Example
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
 async function initializeChat() {
   // Token from your backend (POST /apps/:id/tokens)
@@ -199,7 +201,7 @@ Use the REST API for reading data and managing resources. **Dashboard** access u
 ### Dashboard authentication (login)
 
 ```bash
-curl -X POST https://api.chaterafrika.com/api/v1/auth/login \
+curl -X POST https://dev.chaterafrika.com/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "your-email@example.com",
@@ -219,11 +221,11 @@ Use the **access token** in subsequent requests:
 
 ```bash
 # Get conversations
-curl https://api.chaterafrika.com/api/v1/conversations \
+curl https://dev.chaterafrika.com/api/v1/conversations \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 
 # Get messages for a conversation
-curl https://api.chaterafrika.com/api/v1/conversations/{conversationId}/messages \
+curl https://dev.chaterafrika.com/api/v1/conversations/{conversationId}/messages \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 

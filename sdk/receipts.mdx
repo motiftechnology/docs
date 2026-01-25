@@ -104,7 +104,7 @@ class MessageTracker {
 
 ```tsx
 import { useState, useEffect } from 'react';
-import { Conversation, Message } from '@chatafrika/sdk';
+import { Conversation, Message } from '@chaterafrikang/sdk';
 
 interface MessageWithStatus extends Message {
   displayStatus: 'sending' | 'sent' | 'delivered' | 'read';
@@ -204,7 +204,7 @@ Common patterns for showing message status:
 ## Complete Example
 
 ```typescript
-import { ChatAfrika, Conversation, Message } from '@chatafrika/sdk';
+import { ChatAfrika, Conversation, Message } from '@chaterafrikang/sdk';
 
 class ChatWithReceipts {
   private client: ChatAfrika;
@@ -213,7 +213,7 @@ class ChatWithReceipts {
 
   async initialize(token: string, conversationId: string) {
     this.client = new ChatAfrika({
-      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
       token
     });
 

@@ -8,19 +8,21 @@ description: "Install and set up the ChaterAfrika JavaScript SDK"
 ### NPM
 
 ```bash
-npm install @chatafrika/sdk
+npm install @chaterafrikang/sdk
 ```
+
+For **testing** (beta): `npm install @chaterafrikang/sdk@beta`
 
 ### Yarn
 
 ```bash
-yarn add @chatafrika/sdk
+yarn add @chaterafrikang/sdk
 ```
 
 ### PNPM
 
 ```bash
-pnpm add @chatafrika/sdk
+pnpm add @chaterafrikang/sdk
 ```
 
 ## Requirements
@@ -33,7 +35,7 @@ pnpm add @chatafrika/sdk
 ### Browser / React / Vue / etc.
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
 // token from your backend (POST /apps/:id/tokens)—never keys
 const client = new ChatAfrika({
@@ -50,7 +52,7 @@ await client.connect();
 For Node.js, the SDK uses the native WebSocket when available:
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
 const client = new ChatAfrika({
   wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
@@ -84,7 +86,7 @@ interface ClientConfig {
 const client = new ChatAfrika({
   wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
   token, // from your backend
-  apiUrl: 'https://api.chaterafrika.com', // optional
+  apiUrl: 'https://dev.chaterafrika.com/api/v1', // optional, dev
   debug: process.env.NODE_ENV === 'development',
   autoReconnect: true,
   maxReconnectAttempts: 10,
@@ -96,10 +98,10 @@ const client = new ChatAfrika({
 
 Your **backend** issues SDK tokens via `POST /api/v1/apps/:appId/tokens`. Your **frontend** receives only the **token**—never App ID, public key, or secret key. See [Issue SDK Token](/api-reference/apps/issue-token) and [SDK Authentication](/sdk/authentication).
 
-**Example (backend, API key):**
+**Example (backend, API key, dev):**
 
 ```bash
-curl -X POST https://api.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
+curl -X POST https://dev.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: pk_xxxxx" \
   -H "X-Api-Secret: sk_xxxxx" \
@@ -111,7 +113,7 @@ curl -X POST https://api.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
 ## Verifying Installation
 
 ```typescript
-import { ChatAfrika, ConnectionState } from '@chatafrika/sdk';
+import { ChatAfrika, ConnectionState } from '@chaterafrikang/sdk';
 
 const client = new ChatAfrika({
   wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
@@ -142,7 +144,7 @@ try {
 
 ```tsx
 import { useEffect, useState } from 'react';
-import { ChatAfrika, ConnectionState } from '@chatafrika/sdk';
+import { ChatAfrika, ConnectionState } from '@chaterafrikang/sdk';
 
 function useChatAfrika(token: string) {
   const [client, setClient] = useState<ChatAfrika | null>(null);
@@ -150,7 +152,7 @@ function useChatAfrika(token: string) {
 
   useEffect(() => {
     const chatClient = new ChatAfrika({
-      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
       token,
       debug: true
     });
@@ -185,7 +187,7 @@ function ChatComponent({ token }) {
 ```vue
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { ChatAfrika, ConnectionState } from '@chatafrika/sdk';
+import { ChatAfrika, ConnectionState } from '@chaterafrikang/sdk';
 
 const props = defineProps<{ token: string }>();
 
@@ -194,7 +196,7 @@ const state = ref<ConnectionState>(ConnectionState.DISCONNECTED);
 
 onMounted(async () => {
   client.value = new ChatAfrika({
-    wsUrl: 'wss://ws.dev.chaterafrika.com',
+    wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
     token: props.token,
     debug: true
   });

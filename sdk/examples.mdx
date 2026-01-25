@@ -8,7 +8,7 @@ description: "Complete code examples for the ChaterAfrika SDK"
 A complete example of a basic chat application:
 
 ```typescript
-import { ChatAfrika, Conversation, Message } from '@chatafrika/sdk';
+import { ChatAfrika, Conversation, Message } from '@chaterafrikang/sdk';
 
 class ChatApp {
   private client: ChatAfrika;
@@ -16,7 +16,7 @@ class ChatApp {
 
   async initialize(token: string) {
     this.client = new ChatAfrika({
-      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
       token,
       debug: true
     });
@@ -100,7 +100,7 @@ app.sendMessage('conv-123', 'Hello, world!');
 
 ```tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ChatAfrika, Conversation, Message, ConnectionState } from '@chatafrika/sdk';
+import { ChatAfrika, Conversation, Message, ConnectionState } from '@chaterafrikang/sdk';
 
 // Hook for SDK connection
 function useChatAfrika(token: string) {
@@ -111,7 +111,7 @@ function useChatAfrika(token: string) {
 
   useEffect(() => {
     const chatClient = new ChatAfrika({
-      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
       token,
       debug: true
     });
@@ -250,12 +250,12 @@ export default Chat;
 ## Node.js CLI Chat
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 import * as readline from 'readline';
 
 async function main() {
   const client = new ChatAfrika({
-    wsUrl: 'wss://ws.dev.chaterafrika.com',
+    wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
     token: process.env.SDK_TOKEN!,
     debug: false
   });
@@ -314,7 +314,7 @@ main().catch(console.error);
 ## Support Chat Widget
 
 ```typescript
-import { ChatAfrika, SupportSession } from '@chatafrika/sdk';
+import { ChatAfrika, SupportSession } from '@chaterafrikang/sdk';
 
 class SupportWidget {
   private client: ChatAfrika;
@@ -329,7 +329,7 @@ class SupportWidget {
     this.conversationId = conversationId;
 
     this.client = new ChatAfrika({
-      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
       token
     });
 
@@ -433,7 +433,7 @@ widget.initialize(token, 'conversation-id');
 ## Multi-Conversation Manager
 
 ```typescript
-import { ChatAfrika, Conversation, Message } from '@chatafrika/sdk';
+import { ChatAfrika, Conversation, Message } from '@chaterafrikang/sdk';
 
 class MultiChatManager {
   private client: ChatAfrika;
@@ -452,7 +452,7 @@ class MultiChatManager {
 
   async initialize(token: string) {
     this.client = new ChatAfrika({
-      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
       token
     });
 

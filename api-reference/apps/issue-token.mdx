@@ -51,7 +51,7 @@ Issue a short-lived SDK token for an external user. Use this token in your front
 ### With API key (server-to-server)
 
 ```bash
-curl -X POST https://api.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
+curl -X POST https://dev.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: pk_xxxxx" \
   -H "X-Api-Secret: sk_xxxxx" \
@@ -65,7 +65,7 @@ curl -X POST https://api.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
 ### With JWT
 
 ```bash
-curl -X POST https://api.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
+curl -X POST https://dev.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -d '{
@@ -113,7 +113,7 @@ curl -X POST https://api.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
 **Frontend:** Use only the token—never keys.
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
 // token from your backend
 const client = new ChatAfrika({

@@ -87,7 +87,7 @@ session.on('closed', (event) => {
 ## Customer Flow
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
 async function customerSupportFlow() {
   const client = new ChatAfrika({
@@ -129,7 +129,7 @@ async function customerSupportFlow() {
 ## Agent Flow
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
 async function agentSupportFlow() {
   const client = new ChatAfrika({
@@ -168,7 +168,7 @@ async function agentSupportFlow() {
 
 ```tsx
 import { useState, useEffect } from 'react';
-import { ChatAfrika, SupportSession } from '@chatafrika/sdk';
+import { ChatAfrika, SupportSession } from '@chaterafrikang/sdk';
 
 type SupportStatus = 'bot' | 'queued' | 'assigned' | 'closed';
 
@@ -228,7 +228,7 @@ function SupportChat({ client, conversationId }) {
 ## Complete Example
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
 class SupportChat {
   private client: ChatAfrika;
@@ -240,7 +240,7 @@ class SupportChat {
     this.role = role;
 
     this.client = new ChatAfrika({
-      wsUrl: 'wss://ws.dev.chaterafrika.com',
+      wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
       token
     });
 

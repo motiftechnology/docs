@@ -20,13 +20,15 @@ REST APIs are used for history, analytics, and internal automation only.
 ## Installation
 
 ```bash
-npm install @chatafrika/sdk
+npm install @chaterafrikang/sdk
 ```
+
+For **testing** (beta): `npm install @chaterafrikang/sdk@beta`
 
 ## Quick Start
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
 // Token from your backend (POST /apps/:id/tokens)—never keys
 const client = new ChatAfrika({
@@ -136,7 +138,7 @@ interface ClientConfig {
 ### ChatAfrika Client
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
 const client = new ChatAfrika({
   wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
@@ -271,7 +273,7 @@ import {
   Conversation,
   Message,
   ConnectionState 
-} from '@chatafrika/sdk';
+} from '@chaterafrikang/sdk';
 
 const client: ChatAfrika = new ChatAfrika({ /* config */ });
 const conversation: Conversation = client.conversations.get('id');
@@ -280,7 +282,7 @@ const conversation: Conversation = client.conversations.get('id');
 ## Complete Example
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
 async function initializeChat() {
   // Initialize SDK

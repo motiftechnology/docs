@@ -75,7 +75,7 @@ Your **backend** issues tokens via `POST /api/v1/apps/:appId/tokens`. See [Issue
 **API key (server-to-server):**
 
 ```bash
-curl -X POST https://api.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
+curl -X POST https://dev.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
   -H "Content-Type: application/json" \
   -H "X-Api-Key: pk_xxxxx" \
   -H "X-Api-Secret: sk_xxxxx" \
@@ -167,7 +167,7 @@ class WebSocketManager {
 Use the **token** from your backend only—never keys:
 
 ```typescript
-import { ChatAfrika } from '@chatafrika/sdk';
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
 // token from your backend (POST /apps/:id/tokens)
 const client = new ChatAfrika({
