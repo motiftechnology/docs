@@ -72,9 +72,9 @@ Conversations **owned by your app** (e.g. orders, appointments, tickets). Partic
 
 **Flow:** Your **backend** creates the conversation (see below), issues SDK tokens for each participant (`POST /apps/:id/tokens`), and returns `token` + `conversation_id` to your frontend. The **SDK** joins by `conversation_id` and sends/receives messages. No dashboard login required—use [Create EXTERNAL (API Key)](/api-reference/conversations/create-external) and [Issue SDK Token](/api-reference/apps/issue-token) with your app keys.
 
-**Inbox & history:** To show "my conversations" and load past messages, use the same API keys:
-- [List EXTERNAL conversations](/api-reference/conversations/list-external): `GET /conversations/external?external_user_id=...` — returns all EXTERNAL conversations where that user is a participant.
-- [Get EXTERNAL messages](/api-reference/conversations/get-external-messages): `GET /conversations/external/:id/messages?external_user_id=...` — returns paginated message history. The SDK can expose `sdk.conversations.list()` and `convo.fetchMessages()` that call these (or your backend proxies them).
+**Inbox & history:** To show "my conversations" and load past messages without building a backend route, you can:
+- Use the **inbox client** (`@chatafrika/inbox-client` or `packages/chatafrika-inbox-client` in the repo): pass your API URL and API keys, then call `listConversations(externalUserId)` and `getMessages(conversationId, externalUserId, options)`. In production, prefer `getHeaders()` from your backend so the secret is never exposed in the frontend.
+- Or call the REST API directly: [List EXTERNAL conversations](/api-reference/conversations/list-external) and [Get EXTERNAL messages](/api-reference/conversations/get-external-messages). The SDK may also expose `sdk.conversations.list()` and `convo.fetchMessages()` that call these.
 
 ## Creating Conversations
 
