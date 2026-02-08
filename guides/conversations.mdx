@@ -70,7 +70,7 @@ Conversations **owned by your app** (e.g. orders, appointments, tickets). Partic
 - Marketplaces: host–guest, freelancer–client
 - Any 1:1 or small group chat where **your app** owns the context and identities
 
-**Flow:** Your **backend** creates the conversation (`POST /conversations` with `type: "external"`, `external_id`, `participants`). It then issues SDK tokens for each participant (`POST /apps/:id/tokens`) and returns `token` + `conversation_id` to your frontend. The **SDK** joins by `conversation_id` and sends/receives messages. See [Create Conversation](/api-reference/conversations/create) (EXTERNAL) and [Issue SDK Token](/api-reference/apps/issue-token).
+**Flow:** Your **backend** creates the conversation (see below), issues SDK tokens for each participant (`POST /apps/:id/tokens`), and returns `token` + `conversation_id` to your frontend. The **SDK** joins by `conversation_id` and sends/receives messages. No dashboard login required—use [Create EXTERNAL (API Key)](/api-reference/conversations/create-external) and [Issue SDK Token](/api-reference/apps/issue-token) with your app keys.
 
 ## Creating Conversations
 
@@ -130,19 +130,20 @@ const conversation = await fetch('https://api.chaterafrika.com/api/v1/conversati
 });
 ```
 
-### Create EXTERNAL Conversation (External Chat)
+### Create EXTERNAL Conversation (API Key — recommended for backends)
 
-Your backend creates **external** conversations when your business event occurs (e.g. appointment booked, order placed). Use `external_id` (your app’s ID) and `participants` (external users). Idempotent: same `external_id` returns the existing conversation.
+Use **API keys only** (no dashboard login). Your backend calls `POST /conversations/external` with `X-Api-Key` and `X-Api-Secret`. See [Create EXTERNAL (API Key)](/api-reference/conversations/create-external) for the full reference.
 
 ```typescript
-const conversation = await fetch('https://api.chaterafrika.com/api/v1/conversations', {
+// Your backend (e.g. Node, Laravel, Django)
+const conversation = await fetch('https://dev.chaterafrika.com/api/v1/conversations/external', {
   method: 'POST',
   headers: {
-    'Authorization': `Bearer ${accessToken}`,
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'X-Api-Key': process.env.CHATAFRIKA_PK,
+    'X-Api-Secret': process.env.CHATAFRIKA_SK
   },
   body: JSON.stringify({
-    type: 'external',
     external_id: 'appointment_789',
     participants: [
       { external_user_id: 'doctor_123', role: 'doctor', name: 'Dr. Smith', email: 'dr@hospital.com' },
@@ -150,11 +151,18 @@ const conversation = await fetch('https://api.chaterafrika.com/api/v1/conversati
     ]
   })
 });
+const { data } = await conversation.json();
+const conversationId = data.id;
+// Then issue SDK token (POST /apps/:appId/tokens) and return { token, conversation_id } to frontend
 ```
 
 <Note>
 `external_user_id` in each participant must match the `external_user_id` you use when issuing SDK tokens (`POST /apps/:id/tokens`) for that user. Your frontend receives `token` + `conversation_id` from your backend, then uses the SDK to join and chat.
 </Note>
+
+### Create EXTERNAL with JWT (dashboard)
+
+If you prefer to use dashboard JWT instead of API keys, use `POST /conversations` with `Authorization: Bearer <access_token>` and body `{ type: "external", external_id, participants }`. See [Create Conversation](/api-reference/conversations/create).
 
 ## Managing Conversations
 

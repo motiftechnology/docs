@@ -1,0 +1,110 @@
+---
+title: "Create EXTERNAL Conversation (API Key)"
+api: "POST /api/v1/conversations/external"
+---
+
+## Overview
+
+Create an **EXTERNAL** conversation using **API keys only**—no dashboard login. Use this from your backend (e.g. Node, Laravel, Django) when integrating ChatAfrika into your app. Same credentials you use for [Issue SDK Token](/api-reference/apps/issue-token): **X-Api-Key** and **X-Api-Secret**.
+
+<Note>
+**Backend-only.** Store App ID, public key, and secret key on your server. Call this endpoint when a business event occurs (e.g. order placed, appointment booked). Then call [Issue SDK Token](/api-reference/apps/issue-token) for each participant and return `token` + `conversation_id` to your frontend.
+</Note>
+
+## When to Use This Endpoint
+
+- You are building a **backend** that integrates ChatAfrika (SDK, external chat).
+- You want to **create conversations** without using dashboard login (JWT).
+- You already have an **App** and its **public key** + **secret key** from the dashboard.
+
+For **dashboard** flows (internal users, DIRECT/GROUP/SUPPORT), use [Create Conversation](/api-reference/conversations/create) with JWT instead.
+
+## Request Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-Api-Key` | Yes | App public key (pk_…). **Identifies the app**—no `appId` in the URL or body. |
+| `X-Api-Secret` | Yes | App secret key (sk_…) |
+| `Content-Type` | Yes | `application/json` |
+
+<Note>
+**No appId in the request.** The backend finds the app by `X-Api-Key` (public key) and verifies `X-Api-Secret`. Use the same keys you use for [Issue SDK Token](/api-reference/apps/issue-token) (where `appId` is in the URL: `POST /apps/:appId/tokens`). For this endpoint, the app is implied by the headers.
+</Note>
+
+## Request Body
+
+<ParamField body="external_id" type="string" required>
+  Your app’s ID for this conversation (e.g. order ID, appointment ID, or sorted pair of user IDs). Must be unique per tenant. **Idempotent:** same `external_id` returns the existing conversation.
+</ParamField>
+
+<ParamField body="participants" type="array" required>
+  At least 2 participants. Each object: `external_user_id` (required), `name`, `email`, `role` (optional). `external_user_id` must match the ID you pass when issuing SDK tokens for that user.
+</ParamField>
+
+## Example Request
+
+```bash
+curl -X POST https://dev.chaterafrika.com/api/v1/conversations/external \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: pk_xxxxx" \
+  -H "X-Api-Secret: sk_xxxxx" \
+  -d '{
+    "external_id": "order_789",
+    "participants": [
+      { "external_user_id": "user_1", "name": "Alice", "email": "alice@example.com" },
+      { "external_user_id": "user_2", "name": "Bob", "email": "bob@example.com" }
+    ]
+  }'
+```
+
+## Response
+
+Same shape as [Create Conversation](/api-reference/conversations/create): `success`, `message`, `data` with `id`, `type`, `external_id`, etc.
+
+### Success (201)
+
+```json
+{
+  "success": true,
+  "message": "Conversation created successfully",
+  "data": {
+    "id": "770e8400-e29b-41d4-a716-446655440002",
+    "type": "external",
+    "external_id": "order_789",
+    "tenant_id": "...",
+    "created_at": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+If a conversation with the same `external_id` already exists, the API returns that conversation (idempotent).
+
+## Error Responses
+
+| Status | Description |
+|--------|-------------|
+| 400 | Missing or invalid `external_id` or `participants` (e.g. fewer than 2) |
+| 401 | Invalid or missing `X-Api-Key` / `X-Api-Secret` |
+| 404 | No app found for this tenant (create an App in the dashboard first) |
+
+## Backend Integration Flow
+
+1. **Create conversation** (this endpoint) when your business event occurs (e.g. "Start chat" clicked, order placed).
+2. **Issue SDK token** for the current user: [POST /apps/:appId/tokens](/api-reference/apps/issue-token) with same API keys and `external_user_id` matching a participant.
+3. **Return** `{ token, conversation_id: data.id }` to your frontend.
+4. **Frontend** uses [SDK](/sdk/installation) with `token`, connects, joins `conversation_id`, and sends/receives messages.
+
+<CardGroup cols={2}>
+  <Card title="Issue SDK Token" icon="key" href="/api-reference/apps/issue-token">
+    Issue token for participants
+  </Card>
+  <Card title="SDK Installation" icon="code" href="/sdk/installation">
+    Use token in frontend
+  </Card>
+  <Card title="Conversations Guide" icon="book" href="/guides/conversations">
+    EXTERNAL conversations overview
+  </Card>
+  <Card title="Create Conversation (JWT)" icon="lock" href="/api-reference/conversations/create">
+    Dashboard / other types
+  </Card>
+</CardGroup>

@@ -135,6 +135,15 @@ Your **backend** issues SDK tokens for your frontend. The frontend **never** see
 
 See [Issue SDK Token](/api-reference/apps/issue-token) for the full API reference.
 
+### Backend integration (API key only)
+
+For **external chat** (e.g. order chat, appointment chat) you can use **API keys only**—no dashboard login:
+
+1. **Create conversation:** `POST /api/v1/conversations/external` with `X-Api-Key` and `X-Api-Secret`. Body: `external_id`, `participants`. See [Create EXTERNAL (API Key)](/api-reference/conversations/create-external).
+2. **Issue SDK token:** `POST /api/v1/apps/:appId/tokens` with the same keys and `external_user_id` matching a participant. See [Issue SDK Token](/api-reference/apps/issue-token).
+
+Return `{ token, conversation_id }` to your frontend; the SDK uses the token and joins the conversation.
+
 ## Using Access Tokens
 
 Include the access token in the `Authorization` header for all API requests:

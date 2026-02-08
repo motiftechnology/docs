@@ -215,6 +215,17 @@ Response: `{ "access_token", "refresh_token", "user" }`.
 
 Your backend calls `POST /api/v1/apps/:appId/tokens` with **JWT** or **API key** (`X-Api-Key` + `X-Api-Secret`). See [Issue SDK Token](/api-reference/apps/issue-token). Return the `token` to your frontend; never expose keys.
 
+### Backend integration (external chat)
+
+To add chat to your app (e.g. order chat, appointment chat) **without** dashboard login:
+
+1. **Create conversation** when your business event occurs: `POST /api/v1/conversations/external` with `X-Api-Key` and `X-Api-Secret`. Body: `external_id` (your ID, e.g. order or appointment ID) and `participants` (at least 2; each with `external_user_id`, optional `name`, `email`, `role`). See [Create EXTERNAL (API Key)](/api-reference/conversations/create-external).
+2. **Issue SDK token** for the current user: `POST /api/v1/apps/:appId/tokens` with the same API keys and `external_user_id` matching a participant. See [Issue SDK Token](/api-reference/apps/issue-token).
+3. **Return** `{ token, conversation_id: data.id }` to your frontend.
+4. **Frontend** uses the SDK with `token`, calls `client.connect()`, then `client.conversations.join(conversation_id)` and sends/receives messages.
+
+Same API keys for both steps; no JWT or dashboard session required.
+
 ### Make API requests (dashboard)
 
 Use the **access token** in subsequent requests:

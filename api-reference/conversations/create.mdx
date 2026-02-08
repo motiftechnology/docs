@@ -130,6 +130,10 @@ Conversations owned by your app (e.g. orders, appointments, tickets). Participan
 Idempotent: if a conversation with the same `external_id` exists, the API returns it instead of creating a new one.
 </Note>
 
+<Note>
+**Backend integration:** To create EXTERNAL conversations without dashboard login, use [Create EXTERNAL (API Key)](/api-reference/conversations/create-external): `POST /api/v1/conversations/external` with `X-Api-Key` and `X-Api-Secret`. Same keys you use for [Issue SDK Token](/api-reference/apps/issue-token).
+</Note>
+
 ## Example Request
 
 ```bash

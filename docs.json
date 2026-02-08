@@ -105,6 +105,7 @@
             "group": "Conversations",
             "pages": [
               "api-reference/conversations/create",
+              "api-reference/conversations/create-external",
               "api-reference/conversations/list",
               "api-reference/conversations/get",
               "api-reference/conversations/add-member",
