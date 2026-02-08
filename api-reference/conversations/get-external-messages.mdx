@@ -1,0 +1,104 @@
+---
+title: "Get EXTERNAL Conversation Messages (API Key)"
+api: "GET /api/v1/conversations/external/:conversationId/messages"
+---
+
+## Overview
+
+Get **paginated message history** for an **EXTERNAL** conversation. The caller must be a **participant** (same `external_user_id` used when creating the conversation and issuing SDK tokens). Auth: **API keys only** (`X-Api-Key` + `X-Api-Secret`).
+
+## When to Use
+
+- Your frontend or backend needs to **load past messages** (inbox) for an EXTERNAL conversation.
+- Use with [List EXTERNAL conversations](/api-reference/conversations/list-external) to build a full inbox: list conversations, then fetch messages for the selected one.
+
+## Request Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-Api-Key` | Yes | App public key. |
+| `X-Api-Secret` | Yes | App secret key. |
+
+## Path Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `conversationId` | Conversation UUID (EXTERNAL). |
+
+## Query Parameters
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `external_user_id` | Yes | Your app’s user ID. Must be a participant in this conversation. |
+| `cursor` | No | ISO 8601 timestamp. Returns messages **before** this time. Omit for the latest page. |
+| `limit` | No | Number of messages (default 20, max 100). |
+
+## Example Request
+
+```bash
+curl -X GET "https://dev.chaterafrika.com/api/v1/conversations/external/770e8400-e29b-41d4-a716-446655440002/messages?external_user_id=user_123&limit=20" \
+  -H "X-Api-Key: pk_xxxxx" \
+  -H "X-Api-Secret: sk_xxxxx"
+```
+
+With cursor (next page):
+
+```bash
+curl -X GET "https://dev.chaterafrika.com/api/v1/conversations/external/770e8400.../messages?external_user_id=user_123&cursor=2024-01-01T10:00:00.000Z&limit=20" \
+  -H "X-Api-Key: pk_xxxxx" \
+  -H "X-Api-Secret: sk_xxxxx"
+```
+
+## Response
+
+### Success (200)
+
+```json
+{
+  "success": true,
+  "message": "Messages retrieved successfully",
+  "data": {
+    "messages": [
+      {
+        "id": "msg-uuid",
+        "conversation_id": "770e8400-e29b-41d4-a716-446655440002",
+        "sender_id": "user_123",
+        "sender_type": "sdk",
+        "content": "Hello!",
+        "message_type": "text",
+        "created_at": "2024-01-01T12:00:00Z"
+      }
+    ],
+    "pagination": {
+      "has_next_page": true,
+      "next_cursor": "2024-01-01T11:00:00.000Z",
+      "limit": 20
+    }
+  }
+}
+```
+
+- Messages are ordered **newest first** (descending `created_at`). Use `next_cursor` as the `cursor` query param for the next page (older messages).
+- When `has_next_page` is `false`, there are no older messages.
+
+## Error Responses
+
+| Status | Description |
+|--------|-------------|
+| 400 | Missing `external_user_id` or invalid `cursor`. |
+| 401 | Invalid or missing API credentials. |
+| 403 | Not a participant of this conversation, or conversation is not EXTERNAL. |
+| 404 | Conversation not found. |
+
+## SDK
+
+When the SDK supports history, it can call this endpoint (e.g. `convo.fetchMessages({ cursor, limit })`). The SDK may use `apiUrl` + API key, or your backend can proxy the request.
+
+<CardGroup cols={2}>
+  <Card title="List EXTERNAL conversations" icon="list" href="/api-reference/conversations/list-external">
+    Inbox list
+  </Card>
+  <Card title="Create EXTERNAL (API Key)" icon="plus" href="/api-reference/conversations/create-external">
+    Create conversation
+  </Card>
+</CardGroup>

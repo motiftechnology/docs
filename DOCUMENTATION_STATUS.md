@@ -50,6 +50,8 @@
 - [x] Issue SDK Token (`api-reference/apps/issue-token.mdx`) — **NEW** (JWT or API key; backend-only keys, frontend uses tokens)
 - [x] Create Conversation (`api-reference/conversations/create.mdx`) — **Updated** with `external` type, `external_id`, `participants`; note for backend use [Create EXTERNAL (API Key)](/api-reference/conversations/create-external)
 - [x] Create EXTERNAL (API Key) (`api-reference/conversations/create-external.mdx`) — **NEW** — `POST /conversations/external` with API keys only; for backend integration without dashboard login
+- [x] List EXTERNAL (API Key) (`api-reference/conversations/list-external.mdx`) — **NEW** — `GET /conversations/external?external_user_id=...` for inbox
+- [x] Get EXTERNAL messages (API Key) (`api-reference/conversations/get-external-messages.mdx`) — **NEW** — `GET /conversations/external/:id/messages?external_user_id=...` for message history
 
 ## 📋 Still To Do
 
@@ -87,7 +89,7 @@
 | **SDK Documentation** | 10 | 0 | 10 ✅ |
 | **WebSocket Documentation** | 9 | 0 | 9 ✅ |
 | **Core Guides** | 11 | 10 | 21 |
-| **API Reference** | 6 | ~45 | ~51 |
+| **API Reference** | 8 | ~43 | ~51 |
 | **Total** | **35** | **~56** | **~91** |
 
 ## 🎯 Key Fixes Applied
@@ -106,6 +108,8 @@
 5. **SDK / token flow (Jan 2025)**: `POST /auth/sdk-token` deprecated. Use `POST /apps/:id/tokens` (JWT or API key). App ID, public key, and secret key are **backend-only**; frontend receives only **tokens** from your backend. Create conversations support **EXTERNAL** type with `external_id` and `participants`.
 
 6. **Backend integration (Jan 2025)**: New `POST /conversations/external` with **API keys only** (no dashboard login). Documented in [Create EXTERNAL (API Key)](/api-reference/conversations/create-external). Quick Start and guides (conversations, authentication) updated with backend flow: create conversation → issue token → return `token` + `conversation_id` to frontend.
+
+7. **Inbox & message history (Jan 2025)**: New `GET /conversations/external?external_user_id=...` (list EXTERNAL conversations for an external user) and `GET /conversations/external/:id/messages?external_user_id=...` (paginated message history). Both use API key auth. Documented in [List EXTERNAL](/api-reference/conversations/list-external) and [Get EXTERNAL messages](/api-reference/conversations/get-external-messages). SDK is expected to add `conversations.list()` and `convo.fetchMessages()` that call these endpoints (or app backend proxies them).
 
 ## 📝 Notes
 

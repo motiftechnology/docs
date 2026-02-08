@@ -1,0 +1,81 @@
+---
+title: "List EXTERNAL Conversations (API Key)"
+api: "GET /api/v1/conversations/external"
+---
+
+## Overview
+
+List **EXTERNAL** conversations where the given external user is a participant. Use this to build an **inbox** or "my conversations" list for SDK/external users. Auth: **API keys only** (`X-Api-Key` + `X-Api-Secret`). Same credentials as [Create EXTERNAL](/api-reference/conversations/create-external) and [Issue SDK Token](/api-reference/apps/issue-token).
+
+## When to Use
+
+- Your frontend or backend needs to **list conversations** for a specific user (e.g. "my chats").
+- The user is identified by your app’s `external_user_id` (same value you use when creating conversations and issuing SDK tokens).
+
+## Request Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-Api-Key` | Yes | App public key (identifies the app). |
+| `X-Api-Secret` | Yes | App secret key. |
+
+## Query Parameters
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `external_user_id` | Yes | Your app’s user ID. Returns only EXTERNAL conversations where this user is a participant. |
+
+## Example Request
+
+```bash
+curl -X GET "https://dev.chaterafrika.com/api/v1/conversations/external?external_user_id=user_123" \
+  -H "X-Api-Key: pk_xxxxx" \
+  -H "X-Api-Secret: sk_xxxxx"
+```
+
+## Response
+
+### Success (200)
+
+```json
+{
+  "success": true,
+  "message": "Conversations retrieved successfully",
+  "data": [
+    {
+      "id": "770e8400-e29b-41d4-a716-446655440002",
+      "type": "external",
+      "external_id": "order_789",
+      "tenant_id": "...",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T12:00:00Z",
+      "participants": [
+        { "external_user_id": "user_1", "role": "buyer", "name": "Alice", "email": "alice@example.com" },
+        { "external_user_id": "user_2", "role": "seller", "name": "Bob", "email": "bob@example.com" }
+      ]
+    }
+  ]
+}
+```
+
+Returns an array of conversation objects (same shape as [Create EXTERNAL](/api-reference/conversations/create-external) response). Ordered by `updated_at` descending.
+
+## Error Responses
+
+| Status | Description |
+|--------|-------------|
+| 400 | Missing `external_user_id`. |
+| 401 | Invalid or missing `X-Api-Key` / `X-Api-Secret`. |
+
+## SDK
+
+When the SDK supports inbox/list, it can call this endpoint (e.g. `sdk.conversations.list()`). The SDK may use `apiUrl` + API key, or your backend can proxy this request and return the list to the frontend.
+
+<CardGroup cols={2}>
+  <Card title="Create EXTERNAL (API Key)" icon="plus" href="/api-reference/conversations/create-external">
+    Create a conversation
+  </Card>
+  <Card title="Get EXTERNAL messages" icon="message" href="/api-reference/conversations/get-external-messages">
+    Fetch message history
+  </Card>
+</CardGroup>
