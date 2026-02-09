@@ -58,6 +58,18 @@ const client = new ChatAfrika({
 await client.connect();
 ```
 
+**Optional (inbox):** To list conversations and fetch message history, add `apiUrl`. With the same token, the SDK will call `GET /sdk/conversations` and `GET /sdk/conversations/:id/messages` using Bearer auth.
+
+```typescript
+const client = new ChatAfrika({
+  wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+  apiUrl: 'https://dev.chaterafrika.com/api/v1',
+  token
+});
+await client.connect();
+const { conversations } = await client.conversations.list({ limit: 50 });
+```
+
 ### Join a Conversation
 
 ```typescript

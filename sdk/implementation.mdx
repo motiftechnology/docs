@@ -1,0 +1,318 @@
+---
+title: "Implementation Guide (Backend to Frontend)"
+description: "End-to-end integration: backend creates conversations and issues tokens; frontend uses the SDK with token only."
+---
+
+This guide shows how to integrate the **ChatAfrika SDK** (`@chaterafrikang/sdk`) in your app using a **backend-for-token** pattern: the backend creates conversations and issues SDK tokens; the frontend uses the token only (no API keys on the client).
+
+## Architecture overview
+
+```
+┌─────────────┐     auth + /chat/start or /chat/token     ┌─────────────┐
+│   Frontend  │ ◄─────────────────────────────────────── │   Backend   │
+│  (React etc)│         returns token + conversation_id  │ (Node, etc) │
+└──────┬──────┘                                          └──────┬──────┘
+       │                                                         │
+       │  WebSocket + REST (with token)                           │  REST (API keys)
+       ▼                                                         ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                    ChatAfrika (WebSocket + API)                           │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Backend:** Uses ChatAfrika API keys to create external conversations and issue short-lived SDK tokens. Never exposes API keys to the frontend.
+- **Frontend:** Instantiates the SDK with `token` + `wsUrl` + `apiUrl`; connects, joins conversations, and sends/receives messages. No API keys on the client.
+
+## 1. Backend
+
+### 1.1 Environment variables
+
+```env
+CHATAFRIKA_API_URL=https://dev.chaterafrika.com/api/v1
+CHATAFRIKA_APP_ID=your-app-uuid
+CHATAFRIKA_PK=your-public-key
+CHATAFRIKA_SK=your-secret-key
+```
+
+### 1.2 ChatAfrika service (Node.js example)
+
+Your backend calls the ChatAfrika REST API with API keys to create conversations and issue tokens.
+
+```javascript
+// services/chatafrika.js
+import axios from 'axios';
+
+const API_URL = process.env.CHATAFRIKA_API_URL || 'https://dev.chaterafrika.com/api/v1';
+const APP_ID = process.env.CHATAFRIKA_APP_ID;
+const PK = process.env.CHATAFRIKA_PK;
+const SK = process.env.CHATAFRIKA_SK;
+
+/**
+ * Create an EXTERNAL conversation. Idempotent by external_id.
+ * Use a stable external_id (e.g. sorted user ids) so the same conversation is reused.
+ */
+export async function createExternalConversation(externalId, participants) {
+  if (!PK || !SK) throw new Error('CHATAFRIKA_PK and CHATAFRIKA_SK required');
+  const { data } = await axios.post(
+    `${API_URL}/conversations/external`,
+    { external_id: externalId, participants },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Api-Key': PK,
+        'X-Api-Secret': SK,
+      },
+    }
+  );
+  const conv = data?.data ?? data;
+  return conv?.id ?? conv?.conversation_id ?? conv;
+}
+
+/**
+ * Issue an SDK token for a user. The frontend will use this token to connect.
+ */
+export async function issueSdkToken(external_user_id, name, email) {
+  if (!APP_ID || !PK || !SK) throw new Error('ChatAfrika app credentials missing');
+  const { data } = await axios.post(
+    `${API_URL}/apps/${APP_ID}/tokens`,
+    { external_user_id, name, email: email || undefined },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Api-Key': PK,
+        'X-Api-Secret': SK,
+      },
+    }
+  );
+  const payload = data?.data ?? data;
+  const token = payload?.token;
+  if (!token) throw new Error('No token in response');
+  return { token, expires_in: payload.expires_in, user_id: payload.user_id ?? external_user_id };
+}
+```
+
+### 1.3 API routes
+
+**Get token (e.g. for Inbox / conversation list):**
+
+```javascript
+// GET /api/chat/token – returns { token, expires_in }
+// Requires: authenticated user (your auth middleware)
+router.get('/token', authMiddleware, async (req, res) => {
+  const currentId = req.user.userId;
+  const currentUser = await User.findById(currentId).select('name email');
+  if (!currentUser) return res.status(404).json({ error: 'User not found' });
+  const { token, expires_in } = await issueSdkToken(
+    currentId,
+    currentUser.name,
+    currentUser.email
+  );
+  return res.json({ token, expires_in });
+});
+```
+
+**Start or get a 1:1 conversation and return token + conversation_id:**
+
+```javascript
+// POST /api/chat/start – body: { otherUserId }
+// Returns: { token, conversation_id, other_user: { id, name } }
+router.post('/start', authMiddleware, async (req, res) => {
+  const { otherUserId } = req.body;
+  const currentId = req.user.userId;
+  // Resolve currentUser, otherUser from your DB...
+
+  const externalId = [currentId, otherUserId].sort().join('_');
+  const participants = [
+    { external_user_id: currentId, name: currentUser.name, email: currentUser.email },
+    { external_user_id: otherUserId, name: otherUser.name, email: otherUser.email },
+  ];
+
+  const conversation = await createExternalConversation(externalId, participants);
+  const conversationId = typeof conversation === 'string' ? conversation : conversation?.id;
+  const { token } = await issueSdkToken(currentId, currentUser.name, currentUser.email);
+
+  return res.json({
+    token,
+    conversation_id: conversationId,
+    other_user: { id: otherUser._id, name: otherUser.name },
+  });
+});
+```
+
+## 2. Frontend
+
+### 2.1 Install the SDK
+
+```bash
+npm install @chaterafrikang/sdk
+```
+
+### 2.2 Config (WS + API URLs)
+
+Point the SDK at the same environment as your backend (e.g. dev).
+
+```javascript
+// config.js
+const defaultWsUrl = 'wss://ws.dev.chaterafrika.com/ws';
+const defaultApiUrl = 'https://dev.chaterafrika.com/api/v1';
+
+export const WS_URL = import.meta.env.VITE_CHATAFRIKA_WS_URL || defaultWsUrl;
+export const API_URL = import.meta.env.VITE_CHATAFRIKA_API_URL || defaultApiUrl;
+```
+
+### 2.3 Getting a token and opening a chat
+
+- **From user list (start new chat):** Call your `POST /api/chat/start` with `otherUserId`; your backend returns `token`, `conversation_id`, and `other_user`. Navigate to the chat screen and pass these in state (or params).
+- **From inbox (existing conversation):** Call your `GET /api/chat/token`, then use the SDK to list conversations. When the user opens a conversation, pass `token`, `conversation_id`, and the other participant's display name to the chat screen.
+
+Example (React Router) – starting a chat from a user list:
+
+```javascript
+const res = await api('/chat/start', {
+  method: 'POST',
+  body: JSON.stringify({ otherUserId }),
+});
+navigate(`/chat/${otherUserId}`, {
+  state: {
+    token: res.token,
+    conversation_id: res.conversation_id,
+    otherName: res.other_user?.name,
+  },
+});
+```
+
+### 2.4 Chat screen – SDK setup, connect, join, messages
+
+Use one **token** and one **conversationId** per chat screen (from your backend or inbox).
+
+```javascript
+import { ChatAfrika } from '@chaterafrikang/sdk';
+import { WS_URL, API_URL } from './config';
+
+// token, conversationId (cid), current user id and other display name come from your app state/route
+const cid = state.conversation_id || routeConversationId;
+const currentUserId = String(user?.id ?? user?._id ?? '').trim();
+
+const client = new ChatAfrika({
+  wsUrl: WS_URL,
+  apiUrl: API_URL,
+  token,
+  debug: true, // optional
+});
+const convo = client.conversations.get(cid);
+
+// Optional: clear connection errors once connected
+client.on('connected', () => setError(''));
+client.on('disconnected', () => setConnected(false));
+client.on('error', (err) => setError(err.message || 'Connection error'));
+```
+
+**Connect and join:**
+
+```javascript
+await client.connect();
+await client.conversations.join(cid);
+// Now you can send messages and fetch history.
+```
+
+**Fetch message history (after join):**
+
+```javascript
+const res = await convo.fetchMessages({ limit: 50 });
+const history = res?.messages ?? res?.data?.messages ?? [];
+const mapped = history.map((m) => ({
+  id: m.id ?? m.message_id,
+  content: m.content ?? m.body ?? m.text,
+  senderId: m.sender_id ?? m.senderId,
+  self: String(m.sender_id ?? m.senderId) === currentUserId,
+}));
+setMessages((prev) => {
+  const combined = [...mapped, ...prev];
+  return combined.filter((v, i, a) => v.id && a.findIndex((x) => x.id === v.id) === i);
+});
+```
+
+**Listen for new messages – and dedupe:**
+
+The SDK may emit the same message more than once (e.g. optimistic + server echo, or network replay). To avoid duplicate UI entries and React key warnings, **only append a message if its id is not already in the list**:
+
+```javascript
+convo.on('message', (msg) => {
+  const id = msg.id ?? msg.message_id;
+  const senderId = String(msg.senderId ?? msg.sender_id ?? '').trim();
+  const self = currentUserId === senderId;
+
+  setMessages((prev) => {
+    // Dedupe: avoid duplicate keys / bubbles if SDK emits same message twice
+    if (prev.some((m) => m.id === id)) return prev;
+    return [...prev, { id, content: msg.content, senderId, self }];
+  });
+});
+```
+
+**Send a message:**
+
+```javascript
+convo.sendMessage(input.trim());
+```
+
+**Cleanup on unmount:**
+
+```javascript
+client.conversations.leave(cid).catch(() => {});
+client.disconnect();
+```
+
+### 2.5 Typing indicators
+
+**Send typing (e.g. on input change / focus, stop on blur or after idle):**
+
+```javascript
+convo.startTyping();
+// After 2s idle or on blur:
+convo.stopTyping();
+```
+
+**Receive typing:**
+
+```javascript
+convo.on('typing', (ev) => {
+  const isOther = ev.userId && String(ev.userId) !== currentUserId;
+  if (isOther) setOtherUserTyping(ev.state === 'start');
+});
+```
+
+### 2.6 Inbox – list conversations (token only)
+
+No API keys on the frontend. Get a token from your backend, then use the SDK to list conversations:
+
+```javascript
+const { token } = await api('/chat/token');
+const client = new ChatAfrika({ apiUrl: API_URL, token });
+const { conversations } = await client.conversations.list({ limit: 50 });
+// Then navigate to chat with conversation id and token in state
+```
+
+## 3. Important details
+
+| Topic | Recommendation |
+|-------|----------------|
+| **API keys** | Never expose `CHATAFRIKA_PK` / `CHATAFRIKA_SK` (or `APP_ID` if secret) on the frontend. Issue short-lived tokens from the backend. |
+| **Token** | Each chat session (or inbox load) gets a token from your backend. Pass it into `new ChatAfrika({ token, wsUrl, apiUrl })`. |
+| **Conversation id** | Create or resolve conversations on the backend (external API). Send `conversation_id` to the frontend so it can `join(cid)` and `get(cid)`. |
+| **User identity** | Use a stable `external_user_id` (e.g. your DB user id) when creating conversations and issuing tokens. Use the same value to compute `self` (e.g. `msg.sender_id === currentUserId`). |
+| **Message dedupe** | **Dedupe in the frontend:** when handling `convo.on('message')`, only append if `prev.some((m) => m.id === id)` is false. This avoids duplicate keys and duplicate bubbles if the SDK emits the same message twice. |
+| **History merge** | When merging `fetchMessages` result with existing state, dedupe by message id so the same message from history and real-time doesn't appear twice. |
+
+## 4. Checklist
+
+- [ ] Backend: env vars set (`CHATAFRIKA_APP_ID`, `CHATAFRIKA_PK`, `CHATAFRIKA_SK`).
+- [ ] Backend: endpoint to issue token (e.g. `GET /api/chat/token`).
+- [ ] Backend: endpoint to create/start conversation and return token + `conversation_id` (e.g. `POST /api/chat/start`).
+- [ ] Frontend: config with `WS_URL` and `API_URL` (same env as backend).
+- [ ] Frontend: get token from your backend; pass token + `conversation_id` into the chat screen.
+- [ ] Frontend: `client.connect()` then `client.conversations.join(cid)`; then `fetchMessages` and `convo.on('message')`.
+- [ ] Frontend: in `convo.on('message')`, **dedupe by message id** before appending (avoid duplicate keys / bubbles if SDK emits same message twice).
+- [ ] Frontend: cleanup on unmount (`leave`, `disconnect`).
+
+This pattern keeps your app secure (keys on backend only) and gives a clear path from backend (conversations + tokens) to frontend (SDK with token only).

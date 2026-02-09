@@ -234,8 +234,10 @@
             "pages": [
               "sdk/overview",
               "sdk/installation",
+              "sdk/implementation",
               "sdk/authentication",
               "sdk/conversations",
+              "sdk/inbox",
               "sdk/messaging",
               "sdk/presence",
               "sdk/typing",

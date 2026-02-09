@@ -7,13 +7,9 @@ description: "Authentication flow for the ChaterAfrika SDK"
 
 The ChaterAfrika SDK uses token-based authentication. You need an SDK token to connect to the WebSocket server.
 
-## Token Types
+## SDK token
 
-| Token | Lifetime | Usage |
-|-------|----------|-------|
-| Access Token | 15 min | REST API requests |
-| Refresh Token | 7 days | Refresh access token |
-| SDK Token | 15 min | WebSocket connection |
+You need a single **SDK token** (about 15 minutes lifetime). It is used for both the WebSocket connection and, when you set `apiUrl`, for REST calls (list conversations, fetch messages) as Bearer.
 
 ## Authentication Flow
 
@@ -74,90 +70,43 @@ const client = new ChatAfrika({
 await client.connect();
 ```
 
-## Token Refresh
+## Token refresh
 
-SDK tokens expire after 15 minutes. Handle token expiration:
-
-### Detecting Token Expiration
+SDK tokens expire after about 15 minutes. When you get a token-expired error, get a new token from your backend, update the client, and reconnect:
 
 ```typescript
 client.on('error', (error) => {
-  if (error.message.includes('Token expired')) {
-    // Token expired, need to refresh
-    handleTokenExpired();
+  if (error.message?.includes('Token expired')) {
+    refreshAndReconnect();
   }
 });
 
-async function handleTokenExpired() {
-  // Get new SDK token from your backend
-  const newToken = await fetchNewSdkToken();
-  
-  // Update the SDK token
-  client.updateToken(newToken);
-  
-  // Reconnect
+async function refreshAndReconnect() {
+  const { token } = await fetch('/api/chat/token').then(r => r.json());
+  client.updateToken(token);
   await client.connect();
 }
 ```
 
-### Automatic Token Management
-
-```typescript
-class TokenManager {
-  private refreshTimer: NodeJS.Timeout | null = null;
-  
-  constructor(
-    private client: ChatAfrika,
-    private refreshCallback: () => Promise<string>
-  ) {
-    // Refresh token 1 minute before expiry (14 minutes)
-    this.scheduleRefresh(14 * 60 * 1000);
-  }
-  
-  private scheduleRefresh(delay: number) {
-    this.refreshTimer = setTimeout(async () => {
-      try {
-        const newToken = await this.refreshCallback();
-        this.client.updateToken(newToken);
-        await this.client.connect();
-        
-        // Schedule next refresh
-        this.scheduleRefresh(14 * 60 * 1000);
-      } catch (error) {
-        console.error('Token refresh failed:', error);
-      }
-    }, delay);
-  }
-  
-  stop() {
-    if (this.refreshTimer) {
-      clearTimeout(this.refreshTimer);
-    }
-  }
-}
-
-// Usage
-const tokenManager = new TokenManager(client, async () => {
-  const response = await fetch('/api/refresh-sdk-token');
-  const { token } = await response.json();
-  return token;
-});
-```
-
 ## Token Claims
 
-The SDK token contains the following claims:
+The SDK token (issued by `POST /api/v1/apps/:appId/tokens`) contains claims like:
 
 ```json
 {
-  "sub": "user-uuid",
-  "tenant_id": "tenant-uuid",
   "app_id": "app-uuid",
-  "type": "sdk",
-  "exp": 1234567890,
-  "iat": 1234567890
+  "sub": "your-external-user-id",
+  "sender_id": "your-external-user-id",
+  "name": "User display name",
+  "email": "user@example.com",
+  "type": "sdk_user",
+  "iat": 1234567890,
+  "exp": 1234567890
 }
 ```
+
+- `sub` is your app’s user identifier (`external_user_id`). The backend uses it for REST inbox endpoints when you call with Bearer token (e.g. list conversations, fetch messages).
+- `type: "sdk_user"` identifies this as an SDK token (not a dashboard JWT).
 
 ## Security Best Practices
 
@@ -208,77 +157,21 @@ const client = new ChatAfrika({ wsUrl: 'wss://ws.dev.chaterafrika.com/ws', token
 await client.connect();
 ```
 
-## Complete Example
-
-```typescript
-import { ChatAfrika } from '@chaterafrikang/sdk';
-
-class ChatService {
-  private client: ChatAfrika | null = null;
-  
-  async initialize() {
-    // Get SDK token from your backend
-    const token = await this.fetchSdkToken();
-    
-    // Initialize client
-    this.client = new ChatAfrika({
-      wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
-      token,
-      debug: true
-    });
-    
-    // Handle token expiration
-    this.client.on('error', async (error) => {
-      if (error.message.includes('Token expired')) {
-        await this.refreshAndReconnect();
-      }
-    });
-    
-    // Connect
-    await this.client.connect();
-    
-    return this.client;
-  }
-  
-  private async fetchSdkToken(): Promise<string> {
-    const response = await fetch('/api/sdk-token', { credentials: 'include' });
-    const { token } = await response.json();
-    return token;
-  }
-  
-  private async refreshAndReconnect() {
-    if (!this.client) return;
-    const token = await this.fetchSdkToken();
-    this.client.updateToken(token);
-    await this.client.connect();
-  }
-  
-  async disconnect() {
-    if (this.client) {
-      await this.client.disconnect();
-      this.client = null;
-    }
-  }
-}
-
-// Usage
-const chatService = new ChatService();
-const client = await chatService.initialize();
-```
+For a full flow (backend token endpoint, start conversation, chat screen, token refresh), see the [Implementation Guide](/sdk/implementation).
 
 ## Next Steps
 
 <CardGroup cols={2}>
+  <Card title="Implementation Guide" icon="book" href="/sdk/implementation">
+    Full backend + frontend integration
+  </Card>
   <Card title="Conversations" icon="comments" href="/sdk/conversations">
-    Join and manage conversations
+    Join and send messages
+  </Card>
+  <Card title="Inbox" icon="inbox" href="/sdk/inbox">
+    List conversations and history
   </Card>
   <Card title="Messaging" icon="message" href="/sdk/messaging">
     Send and receive messages
-  </Card>
-  <Card title="WebSocket Auth" icon="plug" href="/websocket/authentication">
-    WebSocket authentication details
-  </Card>
-  <Card title="API Auth" icon="key" href="/guides/authentication">
-    REST API authentication
   </Card>
 </CardGroup>

@@ -71,8 +71,14 @@ interface ClientConfig {
   wsUrl: string;              // WebSocket server URL
   token: string;              // SDK authentication token
 
-  // Optional
-  apiUrl?: string;            // REST API URL (for future use)
+  // Optional: required for list() and fetchMessages() (inbox)
+  apiUrl?: string;            // REST API base, e.g. 'https://dev.chaterafrika.com/api/v1'
+
+  // REST auth: use ONE of (token), (apiKey + apiSecret), or getRestHeaders
+  apiKey?: string;            // App public key (dev only; do not expose in production)
+  apiSecret?: string;         // App secret (dev only; do not expose in production)
+  getRestHeaders?: () => Promise<Record<string, string>>;  // Preferred: backend returns headers
+
   debug?: boolean;            // Enable debug logging (default: false)
   autoReconnect?: boolean;    // Auto-reconnect on disconnect (default: true)
   maxReconnectAttempts?: number; // Max reconnect attempts (default: 5)
@@ -80,17 +86,39 @@ interface ClientConfig {
 }
 ```
 
-### Example Configuration
+### Example: WebSocket only (no inbox)
 
 ```typescript
 const client = new ChatAfrika({
   wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
   token, // from your backend
-  apiUrl: 'https://dev.chaterafrika.com/api/v1', // optional, dev
   debug: process.env.NODE_ENV === 'development',
-  autoReconnect: true,
-  maxReconnectAttempts: 10,
-  reconnectDelay: 2000
+});
+await client.connect();
+// join, sendMessage, etc. — list() and fetchMessages() will throw until apiUrl + auth are set
+```
+
+### Example: With inbox (list + message history)
+
+```typescript
+// Option A: Bearer token only (recommended for frontend)
+const client = new ChatAfrika({
+  wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+  apiUrl: 'https://dev.chaterafrika.com/api/v1',
+  token, // same token used for WebSocket; REST calls use Authorization: Bearer <token>
+  debug: true,
+});
+// client.conversations.list() and conversation.fetchMessages() use the token
+
+// Option B: Backend proxy (production — no keys in client)
+const client = new ChatAfrika({
+  wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+  apiUrl: 'https://your-api.com/chatafrika', // your backend
+  token,
+  getRestHeaders: async () => {
+    const res = await fetch('/api/chatafrika-headers', { credentials: 'include' });
+    return res.json(); // { 'Authorization': 'Bearer ...', 'X-Api-Key': '...', etc. }
+  },
 });
 ```
 

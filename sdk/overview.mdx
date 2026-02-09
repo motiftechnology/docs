@@ -57,44 +57,15 @@ conversation.sendMessage('Hello, world!');
 
 ## Core Features
 
-### ✅ Real-time Messaging
-
-- Send and receive messages instantly via WebSocket
-- Optimistic message updates (instant UI feedback)
-- Automatic message reconciliation with server
-- Message deduplication
-
-### ✅ Presence Management
-
-- Track user online/offline status
-- Real-time presence updates
-- SDK-global presence tracking
-
-### ✅ Typing Indicators
-
-- Show when users are typing
-- Automatic timeout (5 seconds)
-- Per-conversation typing state
-
-### ✅ Read Receipts
-
-- Track message delivery
-- Track message reads
-- Receipt lifecycle management
-
-### ✅ Support Sessions
-
-- Customer/Agent role awareness
-- Support session lifecycle
-- Agent assignment tracking
-- Bot handover management
-
-### ✅ Connection Management
-
-- Automatic reconnection
-- Connection state tracking
-- Token-based authentication
-- Graceful disconnection
+| Feature | What you get |
+|--------|----------------|
+| **Messaging** | Send/receive over WebSocket, optimistic updates, deduplication. See [Messaging](/sdk/messaging). |
+| **Presence** | User online/offline. See [Presence](/sdk/presence). |
+| **Typing** | Per-conversation typing indicators (auto timeout). See [Typing](/sdk/typing). |
+| **Receipts** | Delivery and read receipts. See [Receipts](/sdk/receipts). |
+| **Support** | Customer/agent roles, sessions, bot handover. See [Support](/sdk/support). |
+| **Inbox / history** | List conversations and fetch message history (REST). Requires `apiUrl`; same `token` is used as Bearer. See [Inbox](/sdk/inbox). |
+| **Connection** | Auto-reconnect, token auth, graceful disconnect. |
 
 ## SDK Architecture
 
@@ -121,15 +92,23 @@ Conversation
 
 ## Configuration
 
+**Minimum:** `wsUrl` + `token` (from your backend). **Inbox/history:** add `apiUrl` — the same token is used as Bearer for `list()` and `fetchMessages()`.
+
 ```typescript
 interface ClientConfig {
-  wsUrl: string;              // WebSocket URL (required)
-  token: string;              // SDK token (required)
-  apiUrl?: string;            // Backend API URL (optional)
-  debug?: boolean;            // Enable debug logging
-  autoReconnect?: boolean;    // Auto-reconnect on disconnect (default: true)
-  maxReconnectAttempts?: number; // Max reconnect attempts (default: 5)
-  reconnectDelay?: number;    // Reconnect delay in ms (default: 1000)
+  wsUrl: string;   // Required. e.g. 'wss://ws.dev.chaterafrika.com/ws'
+  token: string;   // Required. From your backend (POST /apps/:id/tokens)
+
+  apiUrl?: string; // Optional. Needed for client.conversations.list() and conversation.fetchMessages()
+
+  apiKey?: string;     // Dev only; do not use in production frontend
+  apiSecret?: string;  // Dev only; do not use in production frontend
+  getRestHeaders?: () => Promise<Record<string, string>>; // Alternative: backend returns REST headers
+
+  debug?: boolean;
+  autoReconnect?: boolean;    // default true
+  maxReconnectAttempts?: number;
+  reconnectDelay?: number;
 }
 ```
 
@@ -279,82 +258,27 @@ const client: ChatAfrika = new ChatAfrika({ /* config */ });
 const conversation: Conversation = client.conversations.get('id');
 ```
 
-## Complete Example
-
-```typescript
-import { ChatAfrika } from '@chaterafrikang/sdk';
-
-async function initializeChat() {
-  // Initialize SDK
-  const client = new ChatAfrika({
-    wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
-    token, // from your backend
-    debug: true
-  });
-
-  // Handle connection events
-  client.on('connected', () => console.log('Connected!'));
-  client.on('disconnected', () => console.log('Disconnected'));
-  client.on('error', (err) => console.error('Error:', err));
-
-  // Connect
-  await client.connect();
-
-  // Join conversation
-  const conversationId = 'your-conversation-id';
-  await client.conversations.join(conversationId);
-
-  // Get conversation instance
-  const conversation = client.conversations.get(conversationId);
-
-  // Listen for messages
-  conversation.on('message', (message) => {
-    console.log(`${message.senderId}: ${message.content}`);
-  });
-
-  // Listen for typing indicators
-  conversation.on('typing', (event) => {
-    if (event.state === 'start') {
-      console.log(`${event.userId} is typing...`);
-    } else {
-      console.log(`${event.userId} stopped typing`);
-    }
-  });
-
-  // Listen for receipts
-  conversation.on('receipt', (event) => {
-    console.log(`Message ${event.messageId} was ${event.state}`);
-  });
-
-  // Send a message
-  conversation.sendMessage('Hello from ChaterAfrika!');
-
-  return client;
-}
-
-// Initialize
-initializeChat().catch(console.error);
-```
+For a full backend + frontend flow (token endpoint, start conversation, chat screen, inbox), see the [Implementation Guide](/sdk/implementation).
 
 ## Next Steps
 
 <CardGroup cols={2}>
+  <Card title="Implementation Guide" icon="book" href="/sdk/implementation">
+    Backend + frontend integration (recommended)
+  </Card>
   <Card title="Installation" icon="download" href="/sdk/installation">
     Installation and setup
   </Card>
   <Card title="Authentication" icon="key" href="/sdk/authentication">
-    SDK authentication
+    How to get and use the SDK token
   </Card>
   <Card title="Conversations" icon="comments" href="/sdk/conversations">
-    Conversation management
+    Join, leave, send and receive
+  </Card>
+  <Card title="Inbox & history" icon="inbox" href="/sdk/inbox">
+    List conversations and message history
   </Card>
   <Card title="Messaging" icon="message" href="/sdk/messaging">
-    Sending and receiving messages
-  </Card>
-  <Card title="Presence" icon="user" href="/sdk/presence">
-    Presence management
-  </Card>
-  <Card title="Examples" icon="code" href="/sdk/examples">
-    Code examples
+    Messages in detail
   </Card>
 </CardGroup>

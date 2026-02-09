@@ -160,6 +160,17 @@ conversation.on('receipt', (event) => {
 });
 ```
 
+## Inbox and message history
+
+To **list** the current user’s EXTERNAL conversations and **fetch message history** for a conversation, configure `apiUrl` and REST auth (Bearer token, API keys, or `getRestHeaders`). Then use:
+
+- **List:** `client.conversations.list({ limit?, cursor?, externalUserId? })`
+- **History:** `conversation.fetchMessages({ limit?, cursor?, externalUserId? })`
+
+The SDK calls `GET /sdk/conversations` and `GET /sdk/conversations/:id/messages`. When using Bearer token, you can omit `externalUserId` (backend uses token `sub`).
+
+See [Inbox & message history](/sdk/inbox) for full details and examples.
+
 ## Leaving Conversations
 
 When you're done with a conversation:
@@ -168,74 +179,23 @@ When you're done with a conversation:
 await client.conversations.leave('conversation-id');
 ```
 
-## Complete Example
+## Minimal flow
 
 ```typescript
-import { ChatAfrika } from '@chaterafrikang/sdk';
+const client = new ChatAfrika({ wsUrl, token });
+await client.connect();
+await client.conversations.join(conversationId);
 
-async function chatExample() {
-  const client = new ChatAfrika({
-    wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
-    token // from your backend (POST /apps/:id/tokens)
-  });
+const conversation = client.conversations.get(conversationId);
+conversation.on('message', (msg) => console.log(msg.content));
+conversation.sendMessage('Hello!');
 
-  // Connect
-  await client.connect();
-
-  const conversationId = 'conv-123';
-
-  // Join conversation
-  await client.conversations.join(conversationId);
-
-  // Get conversation instance
-  const conversation = client.conversations.get(conversationId);
-
-  // Handle messages
-  conversation.on('message', (message) => {
-    console.log(`[${message.senderId}]: ${message.content}`);
-  });
-
-  // Handle typing
-  conversation.on('typing', (event) => {
-    if (event.state === 'start') {
-      console.log(`${event.userId} is typing...`);
-    }
-  });
-
-  // Handle receipts
-  conversation.on('receipt', (event) => {
-    console.log(`Message ${event.messageId}: ${event.state}`);
-  });
-
-  // Handle joined event
-  conversation.on('joined', () => {
-    console.log('Successfully joined conversation!');
-    
-    // Send initial message
-    conversation.sendMessage('Hello everyone!');
-  });
-
-  // Send typing indicator when user types
-  function handleUserTyping() {
-    conversation.startTyping();
-  }
-
-  // Send message
-  function sendMessage(content: string) {
-    conversation.stopTyping(); // Stop typing when sending
-    conversation.sendMessage(content);
-  }
-
-  // Cleanup on exit
-  process.on('SIGINT', async () => {
-    await client.conversations.leave(conversationId);
-    await client.disconnect();
-    process.exit(0);
-  });
-}
-
-chatExample().catch(console.error);
+// Cleanup when leaving the screen
+await client.conversations.leave(conversationId);
+await client.disconnect();
 ```
+
+For the full app flow (backend token, start conversation, chat screen, fetch history, typing, dedupe), see the [Implementation Guide](/sdk/implementation).
 
 ## Multiple Conversations
 
@@ -286,16 +246,16 @@ try {
 ## Next Steps
 
 <CardGroup cols={2}>
+  <Card title="Implementation Guide" icon="book" href="/sdk/implementation">
+    Full backend + frontend flow
+  </Card>
+  <Card title="Inbox" icon="inbox" href="/sdk/inbox">
+    List conversations and message history
+  </Card>
   <Card title="Messaging" icon="message" href="/sdk/messaging">
-    Deep dive into messaging
+    Messages in detail
   </Card>
   <Card title="Typing" icon="keyboard" href="/sdk/typing">
     Typing indicators
-  </Card>
-  <Card title="Receipts" icon="check" href="/sdk/receipts">
-    Read receipts
-  </Card>
-  <Card title="Examples" icon="code" href="/sdk/examples">
-    Complete examples
   </Card>
 </CardGroup>

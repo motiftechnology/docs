@@ -1,0 +1,152 @@
+---
+title: "SDK Inbox & message history"
+description: "List conversations and fetch message history with the ChaterAfrika SDK"
+---
+
+## Overview
+
+The SDK can **list EXTERNAL conversations** and **fetch paginated message history** for the current user. These use the REST API under the hood. You need to configure `apiUrl` and one of: **Bearer token** (same as WebSocket), **API keys**, or **getRestHeaders()** from your backend.
+
+<Info>
+**Preferred URLs:** The SDK calls `GET /api/v1/sdk/conversations` and `GET /api/v1/sdk/conversations/:id/messages`. These paths avoid route conflicts and work with Bearer token or API keys.
+</Info>
+
+## When to use
+
+- **Inbox UI:** Show "My conversations" and let the user pick one.
+- **Message history:** Load past messages when opening a conversation, with pagination (cursor + limit).
+
+## Configuration
+
+Set **apiUrl** and one of the following so the SDK can authenticate REST calls:
+
+| Method | Use case |
+|--------|----------|
+| **Bearer token** | Frontend: same `token` used for WebSocket. Backend derives `external_user_id` from token `sub`. |
+| **apiKey + apiSecret** | Dev/testing only. Do not expose in production frontend. |
+| **getRestHeaders()** | Production: your backend returns headers (e.g. proxied API key or token). |
+
+See [Installation](/sdk/installation#example-with-inbox-list--message-history) for full examples.
+
+## List conversations
+
+`client.conversations.list()` returns paginated EXTERNAL conversations for the current user.
+
+```typescript
+const { conversations, pagination } = await client.conversations.list({
+  limit: 50,
+  cursor: pagination?.next_cursor ?? undefined,  // for next page
+  externalUserId: undefined,  // optional; when using Bearer token, backend uses token sub
+});
+```
+
+### Response shape
+
+- **conversations:** Array of `ConversationListItem` (id, type, external_id, participants, updated_at, etc.).
+- **pagination:** `{ has_next_page, next_cursor, limit }`.
+
+### Example: build an inbox list
+
+```typescript
+const client = new ChatAfrika({
+  wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+  apiUrl: 'https://dev.chaterafrika.com/api/v1',
+  token, // from your backend
+});
+
+await client.connect();
+
+const { conversations, pagination } = await client.conversations.list({ limit: 20 });
+
+conversations.forEach((conv) => {
+  console.log(conv.id, conv.updated_at, conv.participants);
+});
+
+if (pagination.has_next_page && pagination.next_cursor) {
+  const next = await client.conversations.list({
+    limit: 20,
+    cursor: pagination.next_cursor,
+  });
+}
+```
+
+## Fetch message history
+
+After joining a conversation, use `conversation.fetchMessages()` to load past messages (newest first, paginated).
+
+```typescript
+const conversation = client.conversations.get(conversationId);
+
+const { messages, pagination } = await conversation.fetchMessages({
+  limit: 50,
+  cursor: undefined,  // omit for latest page; use pagination.next_cursor for older messages
+  externalUserId: undefined,  // optional; when using Bearer token, backend uses token sub
+});
+```
+
+### Response shape
+
+- **messages:** Array of `MessageHistoryItem` (id, conversation_id, sender_id, sender_type, content, message_type, created_at, etc.).
+- **pagination:** `{ has_next_page, next_cursor, limit }`.
+
+### Example: load history when opening a chat
+
+```typescript
+await client.conversations.join(conversationId);
+const conversation = client.conversations.get(conversationId);
+
+const { messages, pagination } = await conversation.fetchMessages({ limit: 50 });
+
+messages.forEach((msg) => {
+  console.log(msg.created_at, msg.sender_id, msg.content);
+});
+
+// Load older messages (next page)
+if (pagination.has_next_page && pagination.next_cursor) {
+  const older = await conversation.fetchMessages({
+    limit: 50,
+    cursor: pagination.next_cursor,
+  });
+}
+```
+
+## Endpoints used
+
+| SDK method | HTTP | Path |
+|------------|------|------|
+| `client.conversations.list()` | GET | `/api/v1/sdk/conversations` |
+| `conversation.fetchMessages()` | GET | `/api/v1/sdk/conversations/:conversationId/messages` |
+
+Query params: `limit`, `cursor`, and (when using API keys) `external_user_id`. When using **Bearer token**, the backend derives the user from the token; you do not need to pass `external_user_id`.
+
+## Full integration flow
+
+1. **Backend:** Issue SDK token via `POST /api/v1/apps/:appId/tokens` (API key or JWT). Return `token` to the frontend.
+2. **Frontend:** Create client with `wsUrl`, `apiUrl`, and `token` (or `getRestHeaders`).
+3. **Connect:** `await client.connect()`.
+4. **Inbox:** `await client.conversations.list({ limit: 50 })` and render the list.
+5. **Open chat:** User selects a conversation → `await client.conversations.join(conversationId)`.
+6. **History:** `await conversation.fetchMessages({ limit: 50 })` and render messages.
+7. **Realtime:** Subscribe to `conversation.on('message', ...)`, `conversation.on('receipt', ...)`, and send with `conversation.sendMessage(content)`.
+
+## Errors
+
+- If you see **"REST not configured"**, set `apiUrl` and one of: token (for Bearer), apiKey+apiSecret, or getRestHeaders.
+- If you get **401** on list or messages, ensure the token is valid and not expired, or that API keys / getRestHeaders are correct.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Conversations" icon="comments" href="/sdk/conversations">
+    Join, leave, sendMessage
+  </Card>
+  <Card title="Messaging" icon="message" href="/sdk/messaging">
+    Real-time messaging
+  </Card>
+  <Card title="List EXTERNAL (API)" icon="list" href="/api-reference/conversations/list-external">
+    API reference: list conversations
+  </Card>
+  <Card title="Get messages (API)" icon="message" href="/api-reference/conversations/get-external-messages">
+    API reference: message history
+  </Card>
+</CardGroup>

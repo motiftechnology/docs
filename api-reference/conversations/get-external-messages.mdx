@@ -1,11 +1,16 @@
 ---
-title: "Get EXTERNAL Conversation Messages (API Key)"
-api: "GET /api/v1/conversations/external/:conversationId/messages"
+title: "Get EXTERNAL Conversation Messages"
+api: "GET /api/v1/sdk/conversations/:conversationId/messages"
 ---
 
 ## Overview
 
-Get **paginated message history** for an **EXTERNAL** conversation. The caller must be a **participant** (same `external_user_id` used when creating the conversation and issuing SDK tokens). Auth: **API keys only** (`X-Api-Key` + `X-Api-Secret`).
+Get **paginated message history** for an **EXTERNAL** conversation. The caller must be a **participant** (same `external_user_id` or token identity).
+
+**Preferred path:** `GET /api/v1/sdk/conversations/:conversationId/messages`.  
+**Legacy path:** `GET /api/v1/conversations/external/:conversationId/messages`.
+
+**Auth:** Either **Bearer token** (SDK token) or **API keys** (`X-Api-Key` + `X-Api-Secret`). With Bearer, `external_user_id` is derived from the token and can be omitted.
 
 ## When to Use
 
@@ -16,8 +21,11 @@ Get **paginated message history** for an **EXTERNAL** conversation. The caller m
 
 | Header | Required | Description |
 |--------|----------|-------------|
-| `X-Api-Key` | Yes | App public key. |
-| `X-Api-Secret` | Yes | App secret key. |
+| `Authorization` | Optional* | `Bearer <SDK token>`. Use when calling from frontend with SDK token. |
+| `X-Api-Key` | Optional* | App public key. Required when not using Bearer. |
+| `X-Api-Secret` | Optional* | App secret key. Required when not using Bearer. |
+
+*Use either Bearer token or API keys.
 
 ## Path Parameters
 
@@ -29,14 +37,22 @@ Get **paginated message history** for an **EXTERNAL** conversation. The caller m
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `external_user_id` | Yes | Your app’s user ID. Must be a participant in this conversation. |
+| `external_user_id` | When using API keys | Your app’s user ID. Omit when using Bearer (backend uses token `sub`). |
 | `cursor` | No | ISO 8601 timestamp. Returns messages **before** this time. Omit for the latest page. |
 | `limit` | No | Number of messages (default 20, max 100). |
 
-## Example Request
+## Example: Bearer token (SDK / frontend)
 
 ```bash
-curl -X GET "https://dev.chaterafrika.com/api/v1/conversations/external/770e8400-e29b-41d4-a716-446655440002/messages?external_user_id=user_123&limit=20" \
+curl -X GET "https://dev.chaterafrika.com/api/v1/sdk/conversations/770e8400-e29b-41d4-a716-446655440002/messages?limit=20" \
+  -H "Authorization: Bearer <SDK_TOKEN>" \
+  -H "Content-Type: application/json"
+```
+
+## Example: API keys (backend)
+
+```bash
+curl -X GET "https://dev.chaterafrika.com/api/v1/sdk/conversations/770e8400-e29b-41d4-a716-446655440002/messages?external_user_id=user_123&limit=20" \
   -H "X-Api-Key: pk_xxxxx" \
   -H "X-Api-Secret: sk_xxxxx"
 ```
@@ -44,7 +60,7 @@ curl -X GET "https://dev.chaterafrika.com/api/v1/conversations/external/770e8400
 With cursor (next page):
 
 ```bash
-curl -X GET "https://dev.chaterafrika.com/api/v1/conversations/external/770e8400.../messages?external_user_id=user_123&cursor=2024-01-01T10:00:00.000Z&limit=20" \
+curl -X GET "https://dev.chaterafrika.com/api/v1/sdk/conversations/770e8400.../messages?external_user_id=user_123&cursor=2024-01-01T10:00:00.000Z&limit=20" \
   -H "X-Api-Key: pk_xxxxx" \
   -H "X-Api-Secret: sk_xxxxx"
 ```
@@ -92,7 +108,7 @@ curl -X GET "https://dev.chaterafrika.com/api/v1/conversations/external/770e8400
 
 ## SDK
 
-When the SDK supports history, it can call this endpoint (e.g. `convo.fetchMessages({ cursor, limit })`). The SDK may use `apiUrl` + API key, or your backend can proxy the request.
+The JavaScript SDK calls this endpoint when you use `conversation.fetchMessages({ cursor, limit })`. Configure `apiUrl` and Bearer token, API keys, or `getRestHeaders()`. See [SDK Inbox](/sdk/inbox).
 
 <CardGroup cols={2}>
   <Card title="List EXTERNAL conversations" icon="list" href="/api-reference/conversations/list-external">

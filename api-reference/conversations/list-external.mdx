@@ -1,34 +1,52 @@
 ---
-title: "List EXTERNAL Conversations (API Key)"
-api: "GET /api/v1/conversations/external"
+title: "List EXTERNAL Conversations"
+api: "GET /api/v1/sdk/conversations"
 ---
 
 ## Overview
 
-List **EXTERNAL** conversations where the given external user is a participant. Use this to build an **inbox** or "my conversations" list for SDK/external users. Auth: **API keys only** (`X-Api-Key` + `X-Api-Secret`). Same credentials as [Create EXTERNAL](/api-reference/conversations/create-external) and [Issue SDK Token](/api-reference/apps/issue-token).
+List **EXTERNAL** conversations where the given external user is a participant. Use this to build an **inbox** or "my conversations" list for SDK/external users.
+
+**Preferred path:** `GET /api/v1/sdk/conversations` (stable; no route conflict).  
+**Legacy path:** `GET /api/v1/conversations/external` (same behavior when server route order is correct).
+
+**Auth:** Either **Bearer token** (SDK token from [Issue SDK Token](/api-reference/apps/issue-token)) or **API keys** (`X-Api-Key` + `X-Api-Secret`). With Bearer token, `external_user_id` is derived from the token and can be omitted.
 
 ## When to Use
 
 - Your frontend or backend needs to **list conversations** for a specific user (e.g. "my chats").
-- The user is identified by your app’s `external_user_id` (same value you use when creating conversations and issuing SDK tokens).
+- The user is identified by your app’s `external_user_id` (or from token `sub` when using Bearer).
 
 ## Request Headers
 
 | Header | Required | Description |
 |--------|----------|-------------|
-| `X-Api-Key` | Yes | App public key (identifies the app). |
-| `X-Api-Secret` | Yes | App secret key. |
+| `Authorization` | Optional* | `Bearer <SDK token>`. Use when calling from frontend with SDK token. |
+| `X-Api-Key` | Optional* | App public key. Required when not using Bearer. |
+| `X-Api-Secret` | Optional* | App secret key. Required when not using Bearer. |
+
+*Use either Bearer token or API keys.
 
 ## Query Parameters
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `external_user_id` | Yes | Your app’s user ID. Returns only EXTERNAL conversations where this user is a participant. |
+| `external_user_id` | When using API keys | Your app’s user ID. Omit when using Bearer (backend uses token `sub`). |
+| `cursor` | No | Pagination cursor (ISO timestamp). |
+| `limit` | No | Page size (default 20, max 100). |
 
-## Example Request
+## Example: Bearer token (SDK / frontend)
 
 ```bash
-curl -X GET "https://dev.chaterafrika.com/api/v1/conversations/external?external_user_id=user_123" \
+curl -X GET "https://dev.chaterafrika.com/api/v1/sdk/conversations?limit=50" \
+  -H "Authorization: Bearer <SDK_TOKEN>" \
+  -H "Content-Type: application/json"
+```
+
+## Example: API keys (backend)
+
+```bash
+curl -X GET "https://dev.chaterafrika.com/api/v1/sdk/conversations?external_user_id=user_123&limit=50" \
   -H "X-Api-Key: pk_xxxxx" \
   -H "X-Api-Secret: sk_xxxxx"
 ```
@@ -69,7 +87,7 @@ Returns an array of conversation objects (same shape as [Create EXTERNAL](/api-r
 
 ## SDK
 
-When the SDK supports inbox/list, it can call this endpoint (e.g. `sdk.conversations.list()`). The SDK may use `apiUrl` + API key, or your backend can proxy this request and return the list to the frontend.
+The JavaScript SDK calls this endpoint when you use `client.conversations.list()`. Configure `apiUrl` and either Bearer token (same as WebSocket), API keys, or `getRestHeaders()`. See [SDK Inbox](/sdk/inbox).
 
 <CardGroup cols={2}>
   <Card title="Create EXTERNAL (API Key)" icon="plus" href="/api-reference/conversations/create-external">
