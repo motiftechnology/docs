@@ -1,0 +1,52 @@
+---
+title: "Team Members Overview"
+description: "Roles, listing members, and promoting users to agents"
+---
+
+Your tenant’s **team** is made up of users who have joined the tenant (the owner who registered, plus anyone who accepted an invitation). This page covers roles, listing members, and promoting users to agents.
+
+<CardGroup cols={2}>
+  <Card title="Invitations" icon="mail" href="/guides/team-members/invitations">
+    Invite by email and accept flow
+  </Card>
+  <Card title="Support Routing" icon="route" href="/guides/support-routing">
+    Departments and agent assignment
+  </Card>
+  <Card title="Full Support Flow" icon="book" href="/guides/support-flow-full">
+    Sign up to external app integration
+  </Card>
+</CardGroup>
+
+## Roles
+
+| Role | Description | Who can assign |
+|------|-------------|----------------|
+| **OWNER** | Created at signup. Full control: apps, departments, invitations, promote/remove agents, tenant settings. | Only one per tenant (the registrant). |
+| **ADMIN** | Can invite members, manage departments and agents, access support inbox. | Owner. |
+| **MEMBER** | Tenant member; can be promoted to agent. No invite or admin rights by default. | Owner or Admin (via invite role). |
+| **AGENT** | Appears in support inbox; can accept and reply to support conversations. | Owner or Admin (via invite or promote). |
+
+Agents are **tenant users** who have an **agent profile** (created via `POST /api/v1/agents`). So: first add the user to the tenant (e.g. by inviting them), then promote them to agent.
+
+## Listing tenant members
+
+**Endpoint:** `GET /api/v1/tenants/me/members`  
+**Auth:** `Authorization: Bearer <JWT>`
+
+Returns the list of users in the current tenant with their roles (e.g. from `user_tenants`). Use this to see who can be promoted to agent or to manage roles.
+
+## Promoting a user to agent
+
+1. The user must already be a **tenant member** (they registered as owner, or they **accepted an invitation**).
+2. Call **Create agent:** `POST /api/v1/agents`  
+   **Auth:** JWT (Owner or Admin)  
+   **Body:** `user_id` (UUID of the tenant member), optional `department_ids`, `max_active_chats`.
+
+After creation, the agent appears in the support inbox and can be assigned conversations (see [Support routing](/guides/support-routing)).
+
+## Summary
+
+- **Owner** = registrant; full control.
+- **Admin / Member / Agent** = roles for invited or managed users.
+- **List members:** `GET /api/v1/tenants/me/members`.
+- **Add agents:** First ensure the user is a tenant member (e.g. via [invitations](/guides/team-members/invitations)), then `POST /api/v1/agents` with `user_id`.

@@ -1,0 +1,94 @@
+---
+title: "Invitations"
+description: "Invite team members by email, accept flow, and login after accept"
+---
+
+Owners and Admins can **invite** people to join the tenant by email. Invitees receive a link to accept; they can log in and accept or create an account in one step. After accepting, they appear as tenant members and can be [promoted to agents](/guides/team-members/overview#promoting-a-user-to-agent).
+
+<CardGroup cols={2}>
+  <Card title="Team Overview" icon="users" href="/guides/team-members/overview">
+    Roles and listing members
+  </Card>
+  <Card title="Full Support Flow" icon="book" href="/guides/support-flow-full">
+    End-to-end support setup
+  </Card>
+</CardGroup>
+
+## Send an invitation
+
+**Endpoint:** `POST /api/v1/tenants/me/invitations`  
+**Auth:** `Authorization: Bearer <JWT>` (OWNER or ADMIN only)  
+**Body:**
+
+```json
+{
+  "email": "teammate@example.com",
+  "role": "agent",
+  "message": "Optional personal message"
+}
+```
+
+- **Roles:** `admin` | `member` | `agent`. You cannot invite as OWNER.
+- **Result:** A pending invitation is created with a unique token (valid 7 days). An email is sent to the invitee with an accept link.
+- **Limit:** Only one pending invitation per email per tenant (sending again for the same email returns an error until the first is accepted or revoked).
+
+## List and revoke invitations
+
+- **List pending:** `GET /api/v1/tenants/me/invitations` (JWT). Returns pending invitations for the current tenant.
+- **Revoke:** `DELETE /api/v1/tenants/me/invitations/:id` (JWT). Cancels the invitation.
+
+## Accept link in the email
+
+Set `FRONTEND_URL` (or `API_URL`) in your `.env` so the invite email contains the correct accept URL. The link looks like:
+
+`{FRONTEND_URL}/invitations/accept?token=...`
+
+Invitee opens this in the browser. Your dashboard (or any frontend) should:
+
+1. Read the `token` from the query (e.g. `?token=...`).
+2. Call **Get invitation by token:** `GET /api/v1/invitations/by-token?token=...` (no auth).  
+   Use the response to show: “You’re invited to join {tenant} as {role}.”
+3. On “Accept,” call **Accept invitation** (see below).
+
+## Accept invitation
+
+**Endpoint:** `POST /api/v1/invitations/accept`  
+**Auth:** Optional. If the user is **logged in** (Bearer token) and their email matches the invitation, they join immediately with the invited role.
+
+**Body (logged-in user):**
+
+```json
+{
+  "token": "invitation-token-from-email"
+}
+```
+
+**Body (no account — create account and join):**
+
+```json
+{
+  "token": "invitation-token-from-email",
+  "password": "secure-password",
+  "first_name": "Jane",
+  "last_name": "Doe"
+}
+```
+
+- New users are created with `email_verified: true` and can log in immediately with `POST /api/v1/auth/login` using the same email and the password they set.
+
+## Login after accepting
+
+- **Existing users:** Log in as before with `POST /api/v1/auth/login` (email + password).
+- **New users (created on accept):** Use the same email and the password they set in the accept body; they can log in right after accepting.
+
+## API summary
+
+| Action | Method | Endpoint | Auth |
+|--------|--------|----------|------|
+| Invite member | POST | `/api/v1/tenants/me/invitations` | JWT |
+| List invitations | GET | `/api/v1/tenants/me/invitations` | JWT |
+| Revoke invitation | DELETE | `/api/v1/tenants/me/invitations/:id` | JWT |
+| Get invitation by token | GET | `/api/v1/invitations/by-token?token=...` | — |
+| Accept invitation | POST | `/api/v1/invitations/accept` | Optional JWT |
+
+After accept, the user appears in **tenant members** (`GET /api/v1/tenants/me/members`) and can be promoted to agent if needed (`POST /api/v1/agents`).

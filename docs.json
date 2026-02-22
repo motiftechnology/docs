@@ -19,7 +19,15 @@
               "index",
               "quickstart",
               "guides/architecture",
-              "guides/authentication"
+              "guides/authentication",
+              "guides/support-flow-full"
+            ]
+          },
+          {
+            "group": "Team & Members",
+            "pages": [
+              "guides/team-members/overview",
+              "guides/team-members/invitations"
             ]
           },
           {
