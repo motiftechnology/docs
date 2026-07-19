@@ -251,6 +251,7 @@
               "sdk/typing",
               "sdk/receipts",
               "sdk/support",
+              "sdk/widget",
               "sdk/examples"
             ]
           }

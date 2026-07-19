@@ -7,6 +7,63 @@ description: "Support session management with the ChaterAfrika SDK"
 
 Support sessions enable customer-agent interactions with role-based features. The SDK provides support session management for both customers and agents.
 
+<Tip>
+Want a ready-made chat bubble instead of building the UI? See the [Support Widget](/sdk/widget) —
+it wraps everything below in a drop-in `<script>`.
+</Tip>
+
+## Starting a support session (provisioning)
+
+A support conversation is **bot-eligible** only when it's linked to a customer + app. Use one of these
+endpoints to open one and get an SDK token for the visitor — then connect the SDK with them.
+
+### Server-side (one call)
+
+`POST /apps/:id/support-sessions` — auth with **X-Api-Key + X-Api-Secret** (or a dashboard JWT in dev).
+Mints an SDK token **and** opens an app-linked support conversation in a single call.
+
+```bash
+curl -X POST "$API/apps/$APP_ID/support-sessions" \
+  -H "X-Api-Key: pk_…" -H "X-Api-Secret: sk_…" -H "Content-Type: application/json" \
+  -d '{ "external_user_id": "user_123", "name": "Ada", "email": "ada@acme.com" }'
+# → { "data": { "token": "eyJ…", "conversation_id": "…", "expires_in": 86400 } }
+```
+
+### Anonymous (public key, no secret)
+
+`POST /sdk/anonymous-session` — browser-callable with **X-Api-Key: `<public key>`** for
+unauthenticated visitors. The request `Origin` must be in the app's `allowed_origins` (set via
+`PATCH /apps/:id`). Great for static sites — this is what the widget's anonymous mode calls.
+
+```bash
+curl -X POST "$API/sdk/anonymous-session" \
+  -H "X-Api-Key: pk_…" -H "Origin: https://acme.com" -H "Content-Type: application/json" \
+  -d '{ "visitor_id": "v_abc123" }'
+# → { "data": { "token": "eyJ…", "conversation_id": "…" } }
+```
+
+### Update a visitor's contact info
+
+`PATCH /sdk/customers/me` — auth with the **SDK token**. Lets a visitor add their name/email after
+starting (e.g. from a pre-chat form), so agents can reach them.
+
+```bash
+curl -X PATCH "$API/sdk/customers/me" \
+  -H "Authorization: Bearer <SDK token>" -H "Content-Type: application/json" \
+  -d '{ "name": "Ada Okafor", "email": "ada@acme.com" }'
+```
+
+Then connect the SDK and open the session:
+
+```typescript
+const client = new ChatAfrika({ wsUrl, apiUrl, token });   // token from above
+await client.connect();
+await client.conversations.join(conversationId);
+const support = client.support.get(conversationId, 'customer');
+support.on('message', (m) => render(m));                    // bot + agent replies
+client.conversations.get(conversationId).sendMessage('How long do refunds take?');
+```
+
 ## Getting a Support Session
 
 ```typescript

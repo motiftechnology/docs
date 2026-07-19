@@ -1,0 +1,145 @@
+---
+title: "Support Widget (embeddable)"
+description: "Drop a live-chat + AI bot support bubble onto any site with one script — built on the headless SDK"
+---
+
+## Overview
+
+The **ChatAfrika Widget** (`@chaterafrikang/widget`) is a drop-in support chat bubble built on top of
+the headless SDK. One `<script>` renders a floating launcher + chat panel; your visitors talk to the
+**AI bot** (and human agents) with zero UI work on your side. Everything — the SDK, its dependencies,
+and the UI — is bundled into a single self-contained file.
+
+<Note>
+The SDK (`@chaterafrikang/sdk`) is **headless** — logic only, no UI. Use it directly if you want to
+build your own chat interface. Use the **widget** when you want a ready-made bubble.
+</Note>
+
+## Install
+
+<CodeGroup>
+```html Script tag (any site)
+<!-- unpkg / jsDelivr serve the bundled build; global: ChatAfrikaWidget -->
+<script src="https://unpkg.com/@chaterafrikang/widget"></script>
+```
+
+```bash npm (React / Vue / Next)
+npm install @chaterafrikang/widget
+```
+</CodeGroup>
+
+```js
+import { init } from '@chaterafrikang/widget'; // npm
+init({ wsUrl, /* … */ });
+// or, with the script tag: ChatAfrikaWidget.init({ wsUrl, … })
+```
+
+## The security model
+
+The widget runs in the browser, so it only ever holds an **SDK token** (scoped to one app + one
+visitor, short-lived). Your **API secret never touches the browser.**
+
+```
+Backend / anonymous endpoint  ── token + conversation_id ──▶  Browser widget → SDK → realtime → bot
+```
+
+There are two ways to get the visitor a session — pick based on whether you have a backend.
+
+## Option 1 — Backend-provisioned (recommended when you have a server)
+
+Your server mints a session with your API key + secret and hands only `{ token, conversation_id }` to
+the page. Best when you already know who the visitor is (logged-in users).
+
+<Steps>
+<Step title="Server mints a session">
+```js
+// server-side — the secret stays here
+const r = await fetch(`${API}/apps/${APP_ID}/support-sessions`, {
+  method: 'POST',
+  headers: { 'X-Api-Key': PUBLIC_KEY, 'X-Api-Secret': SECRET_KEY, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ external_user_id: yourUserId, name, email }),
+});
+const { token, conversation_id } = (await r.json()).data;
+```
+</Step>
+<Step title="Frontend boots the widget">
+```html
+<script src="https://unpkg.com/@chaterafrikang/widget"></script>
+<script>
+  ChatAfrikaWidget.init({
+    wsUrl: 'wss://ws.chatafrika.com/ws',
+    apiUrl: 'https://api.chatafrika.com/api/v1',
+    token, conversationId,     // from your backend
+    title: 'Support', primaryColor: '#195EFF',
+  });
+</script>
+```
+</Step>
+</Steps>
+
+## Option 2 — Anonymous, no backend (public key)
+
+For a **static landing page** with unauthenticated visitors and no server, embed with your app's
+**public key**. The widget self-provisions an anonymous session — no secret in the browser.
+
+```html
+<script src="https://unpkg.com/@chaterafrikang/widget"></script>
+<script>
+  ChatAfrikaWidget.init({
+    publicKey: 'pk_…',                            // safe to expose
+    wsUrl:  'wss://ws.chatafrika.com/ws',
+    apiUrl: 'https://api.chatafrika.com/api/v1',  // required in this mode
+    collectContact: true,
+  });
+</script>
+```
+
+<Warning>
+**Allow your site's origin first.** Anonymous embedding is off by default. Add your domain(s) to the
+app's `allowed_origins` (dashboard, or `PATCH /apps/:id { "allowed_origins": ["https://acme.com"] }`).
+Requests are origin-checked server-side and rate-limited.
+</Warning>
+
+The widget generates a **stable visitor id** (localStorage) and caches `{token, conversationId}`, so a
+reload resumes the same conversation and maps to the same customer.
+
+## Options
+
+| Option | Type | Notes |
+|---|---|---|
+| `wsUrl` | string | **Required.** Realtime WebSocket URL. |
+| `token` + `conversationId` | string | Backend-provisioned mode. |
+| `publicKey` | string | Anonymous mode (needs `apiUrl`). Provide this **or** `token`+`conversationId`. |
+| `apiUrl` | string | REST base. Required for anonymous mode; enables history + contact capture. |
+| `title` / `subtitle` | string | Header text. |
+| `greeting` | string | First bubble shown on open. |
+| `primaryColor` | string | Accent hex. Default `#195EFF`. |
+| `position` | `'bottom-right' \| 'bottom-left'` | Launcher position. |
+| `autoOpen` | boolean | Open the panel on init. |
+| `collectContact` | boolean | Pre-chat name + email form. |
+| `requireEmail` | boolean | Make email mandatory when collecting contact. |
+
+## Controlling the widget
+
+```js
+const w = ChatAfrikaWidget.init({ … });
+w.open(); w.close(); w.send('Hi'); w.destroy();
+// also: ChatAfrikaWidget.open() / .close() / .destroy()
+```
+
+## Pre-chat contact capture
+
+With `collectContact: true`, the widget asks the visitor for their name + (optional) email before
+chatting and saves it to their customer profile via `PATCH /sdk/customers/me` (authenticated by the
+SDK token — no secrets). Agents then see the visitor's contact details in the inbox.
+
+## What happens when a visitor sends a message
+
+```
+visitor → widget (SDK) → realtime → AI bot (FAQ match → Claude answer, grounded)
+                                   ├─ greeting/small-talk → friendly reply (no escalation)
+                                   └─ can't answer → escalates to a human agent
+```
+
+Bot replies are delivered live **and** persisted, so they appear in history and the agent inbox. See
+[SDK Support Sessions](/sdk/support) for the underlying session API and provisioning endpoints.
