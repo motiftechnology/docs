@@ -218,8 +218,8 @@ Track when messages are read:
 ### Send Read Receipt
 
 ```typescript
-// Using SDK
-await client.receipts.markRead(conversationId, messageId);
+// Using SDK — mark a message read on its conversation
+client.conversations.get(conversationId).markRead(messageId);
 
 // WebSocket protocol
 ws.send(JSON.stringify({
