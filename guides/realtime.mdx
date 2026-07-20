@@ -144,18 +144,15 @@ Track user online/offline status:
 
 ### Update Presence
 
-```typescript
-// Using SDK
-await client.presence.update('online');
-await client.presence.update('offline');
-await client.presence.update('away');
-```
+Presence has two states: **`online`** and **`offline`**. It's tracked automatically — a user
+is `online` while connected and `offline` when they disconnect.
 
 ### Listen for Presence Updates
 
 ```typescript
-client.presence.on('update', (update) => {
-  console.log('User presence changed:', update.user_id, update.status);
+client.on('presence', (event) => {
+  console.log('User presence changed:', event.user_id, event.state);
+  // event.state is 'online' or 'offline'
 });
 ```
 
@@ -164,7 +161,10 @@ client.presence.on('update', (update) => {
 ```json
 {
   "type": "presence",
-  "status": "online"
+  "payload": {
+    "user_id": "user-uuid",
+    "state": "online"
+  }
 }
 ```
 
@@ -225,7 +225,9 @@ await client.receipts.markRead(conversationId, messageId);
 ws.send(JSON.stringify({
   type: 'read',
   conversation_id: conversationId,
-  message_id: messageId
+  payload: {
+    message_id: messageId
+  }
 }));
 ```
 

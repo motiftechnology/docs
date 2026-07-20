@@ -15,7 +15,7 @@ ChaterAfrika is a multi-tenant chat and customer support platform built with a m
     Go WebSocket service for real-time messaging
   </Card>
   <Card title="Frontend Dashboard" icon="window">
-    React admin dashboard for managing the platform
+    Next.js admin dashboard for managing the platform
   </Card>
   <Card title="JavaScript SDK" icon="code">
     Client SDK for application integration
@@ -39,7 +39,7 @@ ChaterAfrika is a multi-tenant chat and customer support platform built with a m
 ┌───────────────┐              ┌───────────────┐
 │  Backend API  │              │ Realtime      │
 │  (NestJS)     │              │ Service (Go)  │
-│  Port: 3000   │              │ Port: 8080   │
+│  Port: 3001   │              │ Port: 8080   │
 └───────┬───────┘              └───────┬───────┘
         │                               │
         │                               │ Redis PubSub
@@ -126,7 +126,7 @@ The Realtime Service handles all WebSocket connections and real-time message del
 The Realtime Service **never** writes to the database. It only publishes events that the Backend API consumes and persists.
 </Warning>
 
-### 3. Frontend Dashboard (React)
+### 3. Frontend Dashboard (Next.js)
 
 The admin dashboard for managing ChaterAfrika instances.
 
@@ -138,7 +138,7 @@ The admin dashboard for managing ChaterAfrika instances.
 - Analytics visualization
 
 **Technology Stack:**
-- **Framework:** React with Vite
+- **Framework:** Next.js (React)
 - **Styling:** Tailwind CSS
 - **State Management:** React Context
 - **HTTP Client:** Axios
@@ -340,7 +340,7 @@ Tenant
 |---------|-----------|---------|
 | Backend API | NestJS, TypeORM, PostgreSQL | Business logic & persistence |
 | Realtime Service | Go, Gorilla WebSocket, Redis | Real-time messaging |
-| Frontend Dashboard | React, Vite, Tailwind CSS | Admin interface |
+| Frontend Dashboard | Next.js, Tailwind CSS | Admin interface |
 | JavaScript SDK | TypeScript, tsup | Client integration |
 | Database | PostgreSQL | Data persistence |
 | Cache/Messaging | Redis | Pub/Sub & event streaming |

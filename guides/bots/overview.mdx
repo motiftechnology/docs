@@ -5,14 +5,18 @@ description: "Understanding ChaterAfrika's AI bot capabilities"
 
 ## Overview
 
-ChaterAfrika includes an AI-powered bot system that can automatically respond to customer messages in support conversations using OpenAI and FAQ matching.
+ChaterAfrika includes an AI-powered bot system that automatically answers customer messages in
+support conversations. It grounds replies in **your FAQs and knowledge documents** and
+generates the response with a large language model — **Claude (Anthropic) by default, with
+OpenAI as a fallback** (configurable via the `LLM_PROVIDER` environment variable).
 
 ## Features
 
-- **FAQ Matching** - Matches customer questions to FAQs
-- **OpenAI Integration** - Generates contextual responses
-- **Auto-escalation** - Escalates to human agents when needed
-- **Handover Management** - Seamless bot-to-agent transitions
+- **FAQ Matching** - Matches customer questions to the FAQs you curate
+- **Knowledge grounding** - Uses your uploaded PDFs and company context as context
+- **LLM-generated replies** - Natural responses from Claude (or OpenAI as fallback)
+- **Auto-escalation** - Escalates to human agents when confidence is low
+- **Handover Management** - Seamless bot-to-agent transitions (and back)
 - **Analytics** - Track bot performance and feedback
 - **Department-specific** - Different bot configs per department
 
@@ -21,11 +25,11 @@ ChaterAfrika includes an AI-powered bot system that can automatically respond to
 ```
 1. Customer sends message in SUPPORT conversation
    ↓
-2. Bot matches against FAQs
+2. Bot finds the most relevant FAQ / knowledge
    ↓
-3. If confidence high → Generate OpenAI response
+3. If confidence ≥ threshold → LLM generates a grounded reply
    ↓
-4. If confidence low → Escalate to agent (if enabled)
+4. If confidence low → Escalate to agent (if auto-escalate is enabled)
    ↓
 5. Bot sends reply via WebSocket
    ↓
@@ -34,15 +38,21 @@ ChaterAfrika includes an AI-powered bot system that can automatically respond to
 
 ## Bot Configuration
 
-Configure bots per app and optionally per department:
+Configure bots per app and optionally per department. The configurable fields are:
 
-- **Enabled/Disabled** - Turn bot on/off
-- **OpenAI API Key** - Your OpenAI API key
-- **Model** - OpenAI model to use (default: gpt-4o-mini)
-- **Min Confidence** - Minimum FAQ match confidence (0-1)
-- **Auto-escalate** - Automatically escalate on low confidence
-- **Escalate Message** - Custom escalation message
-- **Department-specific** - Override global config per department
+- **`is_enabled`** - Turn the bot on/off
+- **`min_confidence`** - Minimum match confidence to answer (0–1)
+- **`auto_escalate`** - Automatically escalate to a human on low confidence
+- **`escalate_message`** - Message shown when escalating
+- **`department_id`** - Scope this config to a department (optional)
+
+<Note>
+  The LLM provider and model are set at the deployment level via environment variables
+  (`LLM_PROVIDER`, `ANTHROPIC_MODEL`, `OPENAI_MODEL`) — they are **not** per-app config fields.
+</Note>
+
+See [Training the Bot](/guides/bots/training) for the full config API and how to add FAQs and
+knowledge documents.
 
 ## FAQ Management
 
@@ -50,8 +60,8 @@ Bots use FAQs to answer questions:
 
 1. Create FAQs in your dashboard
 2. Bot matches customer questions to FAQs
-3. Uses FAQ answer as context for OpenAI
-4. Generates natural response
+3. Uses the FAQ answer (plus your knowledge docs and company context) as grounding
+4. The LLM generates a natural response
 
 ## Handover Flow
 
@@ -71,7 +81,7 @@ Track bot performance:
 - **Confidence Scores** - Average FAQ match confidence
 - **Escalation Rate** - Percentage escalated to agents
 - **Feedback** - Customer feedback on bot responses
-- **Token Usage** - OpenAI token consumption
+- **Token Usage** - LLM token consumption
 
 ## Next Steps
 

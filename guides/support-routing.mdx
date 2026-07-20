@@ -49,7 +49,7 @@ Agents or admins can manually assign conversations:
 
 ```typescript
 await fetch(
-  `https://api.chaterafrika.com/api/v1/support/conversations/${conversationId}/assign`,
+  `https://api.chaterafrika.com/api/v1/support/${conversationId}/assign`,
   {
     method: 'POST',
     headers: {
@@ -57,7 +57,7 @@ await fetch(
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      agent_id: 'agent-uuid'
+      agent_user_id: 'agent-uuid'
     })
   }
 );
@@ -79,7 +79,7 @@ Transfer conversations between agents or departments:
 
 ```typescript
 await fetch(
-  `https://api.chaterafrika.com/api/v1/support/conversations/${conversationId}/transfer`,
+  `https://api.chaterafrika.com/api/v1/support/${conversationId}/transfer`,
   {
     method: 'POST',
     headers: {
@@ -87,8 +87,8 @@ await fetch(
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      agent_id: 'new-agent-uuid',
-      department_id: 'new-department-uuid' // Optional
+      to_agent_user_id: 'new-agent-uuid',
+      to_department_id: 'new-department-uuid' // Optional
     })
   }
 );

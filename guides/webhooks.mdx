@@ -21,29 +21,44 @@ Webhooks allow you to receive real-time notifications about events in your Chate
 
 ## Supported Events
 
-### Message Events
+### Message & receipt events
 
-- `message.created` - New message sent
-- `message.delivered` - Message delivered to recipient
-- `message.read` - Message read by recipient
+- `chat.message.created` - New message sent
+- `chat.receipt.delivered` - Message delivered to a recipient
+- `chat.receipt.read` - Message read by a recipient
 
-### Conversation Events
+### Conversation events
 
-- `conversation.created` - New conversation created
-- `conversation.member_added` - Member added to conversation
-- `conversation.member_removed` - Member removed from conversation
+- `chat.conversation.created` - New conversation created
+- `chat.conversation.member_added` - Member added to a conversation
+- `chat.conversation.member_removed` - Member removed from a conversation
 
-### Support Events
+### Support events
 
-- `support.assigned` - Support conversation assigned to agent
-- `support.transferred` - Support conversation transferred
-- `support.closed` - Support conversation closed
+- `support.queued` - Support conversation entered the queue
+- `support.assigned` - Assigned to an agent
+- `support.accepted` - Agent accepted the conversation
+- `support.transferred` - Transferred to another agent/department
+- `support.closed` - Conversation closed
+- `support.reopened` - Conversation reopened
 
-### Bot Events
+### Bot events
 
-- `bot.reply_sent` - Bot sent a reply
-- `bot.handover` - Bot handed over to agent
-- `bot.escalated` - Bot escalated conversation
+- `bot.reply.sent` - Bot sent a reply
+- `bot.escalated` - Bot escalated (low confidence)
+- `bot.takeover` - An agent took over from the bot
+- `bot.resumed` - The bot resumed after a takeover
+
+### Call events
+
+- `call.invited` - A call was started/invited
+- `call.started` - The call connected
+- `call.participant_joined` - A participant joined
+- `call.participant_left` - A participant left
+- `call.rejected` - The invite was rejected
+- `call.ended` - The call ended
+- `call.missed` - The invite rang out unanswered
+- `call.quality_report` - A call-quality report was submitted
 
 ## Creating a Webhook
 
@@ -74,7 +89,7 @@ curl -X POST https://api.chaterafrika.com/api/v1/apps/{appId}/webhooks \
   -H "Content-Type: application/json" \
   -d '{
     "url": "https://your-server.com/webhooks",
-    "events": ["message.created", "conversation.created"],
+    "events": ["chat.message.created", "chat.conversation.created"],
     "secret": "your-webhook-secret"
   }'
 ```
@@ -86,7 +101,7 @@ All webhook payloads follow this structure:
 ```json
 {
   "id": "webhook-delivery-id",
-  "event": "message.created",
+  "event": "chat.message.created",
   "timestamp": "2024-01-01T00:00:00Z",
   "data": {
     // Event-specific data
@@ -99,7 +114,7 @@ All webhook payloads follow this structure:
 ```json
 {
   "id": "delivery-uuid",
-  "event": "message.created",
+  "event": "chat.message.created",
   "timestamp": "2024-01-01T00:00:00Z",
   "data": {
     "message": {
@@ -122,7 +137,7 @@ All webhook payloads follow this structure:
 ```json
 {
   "id": "delivery-uuid",
-  "event": "conversation.created",
+  "event": "chat.conversation.created",
   "timestamp": "2024-01-01T00:00:00Z",
   "data": {
     "conversation": {
@@ -168,7 +183,7 @@ function verifyWebhookSignature(
 }
 
 // In your webhook handler
-const signature = req.headers['x-chaterafrika-signature'];
+const signature = req.headers['x-chatafrika-signature'];
 const isValid = verifyWebhookSignature(
   JSON.stringify(req.body),
   signature,
@@ -178,10 +193,10 @@ const isValid = verifyWebhookSignature(
 
 ### Signature Header
 
-The signature is sent in the `X-ChaterAfrika-Signature` header:
+The signature is sent in the `X-ChatAfrika-Signature` header:
 
 ```
-X-ChaterAfrika-Signature: sha256=abc123...
+X-ChatAfrika-Signature: sha256=abc123...
 ```
 
 ## Webhook Delivery
@@ -195,10 +210,12 @@ X-ChaterAfrika-Signature: sha256=abc123...
 
 ### Retry Logic
 
-- Initial retry: 1 minute
-- Exponential backoff: 2, 4, 8, 16, 32 minutes
-- Max retries: 5 attempts
-- After max retries: Marked as failed
+Failed deliveries (non-2xx or timeout) are retried on an increasing backoff schedule:
+
+- Backoff: 30s, 1m, 2m, 5m, 10m, 20m, 40m, 80m
+- Max attempts: 8
+- After the final attempt: marked as failed (retry manually from the dashboard or via the
+  deliveries API)
 
 ### Viewing Deliveries
 
@@ -239,7 +256,7 @@ Any HTTP status code other than 2xx is considered a failure and will trigger ret
 ```typescript
 app.post('/webhooks', async (req, res) => {
   // Verify signature
-  const signature = req.headers['x-chaterafrika-signature'];
+  const signature = req.headers['x-chatafrika-signature'];
   if (!verifySignature(req.body, signature, secret)) {
     return res.status(401).send('Invalid signature');
   }
@@ -248,10 +265,10 @@ app.post('/webhooks', async (req, res) => {
   const { event, data } = req.body;
   
   switch (event) {
-    case 'message.created':
+    case 'chat.message.created':
       await handleMessageCreated(data);
       break;
-    case 'conversation.created':
+    case 'chat.conversation.created':
       await handleConversationCreated(data);
       break;
     // ... other events
