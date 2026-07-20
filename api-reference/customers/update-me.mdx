@@ -1,0 +1,67 @@
+---
+title: "Update Visitor"
+api: "PATCH /api/v1/sdk/customers/me"
+description: "Save the current visitor's contact details (name, email, phone)."
+---
+
+## Overview
+
+Updates the **current visitor's** profile — typically to capture a name, email, or phone
+*after* a conversation has already started (e.g. the widget's "leave your email" prompt). The
+visitor is identified by the SDK token, so no ID is needed in the body.
+
+<Note>
+  **Auth:** the visitor's **SDK token** (`Authorization: Bearer …`). Server-to-server callers
+  can use `X-Api-Key` + `X-Api-Secret` and must include `external_user_id` in the body.
+</Note>
+
+## Request Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `Authorization: Bearer <sdk_token>` | Yes (or API key) | The visitor's SDK token |
+| `Content-Type` | Yes | `application/json` |
+
+## Request Body
+
+<ParamField body="name" type="string">
+  Visitor display name.
+</ParamField>
+<ParamField body="email" type="string">
+  Visitor email.
+</ParamField>
+<ParamField body="phone" type="string">
+  Visitor phone number.
+</ParamField>
+<ParamField body="external_user_id" type="string">
+  Required **only** when authenticating with API keys (identifies which visitor to update).
+</ParamField>
+
+## Example Request
+
+```bash
+curl -X PATCH https://dev.chaterafrika.com/api/v1/sdk/customers/me \
+  -H "Authorization: Bearer SDK_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "jane@example.com", "name": "Jane Doe" }'
+```
+
+## Response
+
+### Success (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cus_…",
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "phone": null
+  }
+}
+```
+
+<Card title="Embed the widget" icon="message" href="/sdk/widget">
+  The widget can collect and submit contact details for you.
+</Card>

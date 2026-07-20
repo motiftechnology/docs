@@ -1,88 +1,89 @@
 ---
-title: "Welcome to ChaterAfrika"
-description: "Complete documentation for the ChaterAfrika platform - Multi-tenant chat, messaging, and customer support platform"
+title: "ChaterAfrika Developer Docs"
+description: "Add real-time chat, customer support, and voice/video calls to your app with the ChaterAfrika SDK."
 ---
 
-## What is ChaterAfrika?
+ChaterAfrika is a chat and customer-support platform you embed in your own product.
+Add **real-time messaging**, a **support widget with an AI bot**, and **voice/video calls** —
+using a headless JavaScript SDK, a drop-in widget, or the REST + WebSocket APIs directly.
 
-ChaterAfrika is a comprehensive multi-tenant chat and customer support platform built with modern technologies. It provides real-time messaging, AI-powered bots, webhooks, and a complete SDK for integration.
-
-<Card
-  title="Quick Start"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Get started with ChaterAfrika in minutes
-</Card>
-
-## Platform Architecture
-
-ChaterAfrika consists of multiple services working together:
-
-<Columns cols={2}>
-  <Card
-    title="Backend API"
-    icon="server"
-    href="/guides/backend/overview"
-  >
-    NestJS-based REST API for managing tenants, conversations, messages, and more
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Connect the SDK and send your first message in a few minutes.
   </Card>
-  <Card
-    title="Realtime Service"
-    icon="bolt"
-    href="/guides/realtime/overview"
-  >
-    Go-based WebSocket service for real-time messaging and presence
+  <Card title="Authentication & tokens" icon="key" href="/guides/authentication">
+    How your backend mints SDK tokens — and how anonymous embeds work.
   </Card>
-  <Card
-    title="Frontend Dashboard"
-    icon="window"
-    href="/guides/frontend/overview"
-  >
-    React-based admin dashboard for managing your ChaterAfrika instance
+</CardGroup>
+
+## What you can build
+
+<CardGroup cols={3}>
+  <Card title="Chat" icon="comments" href="/guides/conversations">
+    Direct, group, and in-app conversations with presence, typing, and read receipts.
   </Card>
-  <Card
-    title="JavaScript SDK"
-    icon="code"
-    href="/guides/sdk/overview"
-  >
-    Headless SDK for integrating ChaterAfrika into your applications
+  <Card title="Customer support" icon="headset" href="/guides/support-flow-full">
+    A support inbox, routing to agents, and an AI bot that answers from your FAQs and docs.
   </Card>
-</Columns>
+  <Card title="Voice & video" icon="video" href="/guides/calls">
+    WebRTC audio and video calls with call signaling handled for you.
+  </Card>
+</CardGroup>
 
-## Key Features
+## Ways to integrate
 
-- **Multi-tenant Architecture**: Isolated tenants with their own data and configuration
-- **Real-time Messaging**: WebSocket-based instant messaging with read receipts
-- **AI Bot Integration**: OpenAI-powered conversational bots with handover to agents
-- **Support Routing**: Intelligent conversation routing to departments and agents
-- **Webhooks**: Event-driven webhooks for external integrations
-- **Presence & Typing Indicators**: Real-time user presence and typing status
-- **Analytics**: Bot analytics, feedback collection, and metrics
+<CardGroup cols={2}>
+  <Card title="JavaScript SDK" icon="js" href="/sdk/overview">
+    Headless client for the browser, React, React Native, or Node. Handles the WebSocket,
+    reconnection, conversations, presence, typing, receipts, calls, and support.
+  </Card>
+  <Card title="Support widget" icon="message" href="/sdk/widget">
+    A drop-in chat bubble for your website — provisioned by your backend, or fully
+    anonymous with just a public key.
+  </Card>
+  <Card title="REST API" icon="terminal" href="/api-reference/introduction">
+    Mint tokens, start support sessions, list conversations and history, update visitors.
+  </Card>
+  <Card title="WebSocket protocol" icon="bolt" href="/websocket/overview">
+    The low-level real-time protocol, if you're not using the SDK.
+  </Card>
+</CardGroup>
 
-## Get Started
+## How it fits together
 
-<Card
-  title="Installation Guide"
-  icon="download"
-  href="/quickstart"
->
-  Set up your ChaterAfrika instance
-</Card>
+<Steps>
+  <Step title="Create an app">
+    In the dashboard, create an **App** to get an **App ID**, a **public key** (`pk_…`),
+    and a **secret key** (`sk_…`). Keep the secret on your backend.
+  </Step>
+  <Step title="Mint a token on your backend">
+    Your backend calls the API to issue a short-lived **SDK token** for the current user.
+    The frontend receives only the token — never your keys.
+  </Step>
+  <Step title="Connect from the frontend">
+    The SDK (or widget) connects to the real-time service with that token and streams
+    messages, presence, typing, receipts, and call signaling.
+  </Step>
+</Steps>
 
-<Card
-  title="API Reference"
-  icon="terminal"
-  href="/api-reference/introduction"
->
-  Explore the REST API endpoints
-</Card>
+<Note>
+  Prefer a no-backend embed? A static site can open an anonymous support session with just
+  your **public key** and an allow-listed origin — see [Authentication & tokens](/guides/authentication).
+</Note>
 
-<Card
-  title="SDK Documentation"
-  icon="book"
-  href="/guides/sdk/overview"
->
-  Integrate ChaterAfrika into your app
-</Card>
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    The fastest path to a working chat.
+  </Card>
+  <Card title="SDK reference" icon="book" href="/sdk/overview">
+    Every method and event, feature by feature.
+  </Card>
+  <Card title="Embed the widget" icon="message" href="/sdk/widget">
+    Add a support bubble to any site.
+  </Card>
+  <Card title="Add voice & video" icon="video" href="/guides/calls">
+    Start audio and video calls from a conversation.
+  </Card>
+</CardGroup>

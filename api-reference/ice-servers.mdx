@@ -1,0 +1,76 @@
+---
+title: "Get ICE Servers"
+api: "GET /api/v1/apps/:appId/ice-servers"
+description: "Fetch STUN/TURN server configuration for WebRTC voice/video calls."
+---
+
+## Overview
+
+Returns the **ICE server** configuration (STUN and TURN) a WebRTC client needs to establish
+voice/video calls. The shape matches the browser's `RTCConfiguration.iceServers`, so you can
+pass it straight into an `RTCPeerConnection`.
+
+The SDK calls this for you when you set `appId` + `apiUrl` on the client — you usually don't
+need to call it directly. See [Voice & Video Calls (SDK)](/sdk/calls).
+
+<Note>
+  **Auth:** any valid caller for the app — a dashboard **JWT**, an **SDK token**
+  (`Authorization: Bearer …`), or `X-Api-Key` + `X-Api-Secret`.
+</Note>
+
+## Path Parameters
+
+<ParamField path="appId" type="string" required>
+  App ID (UUID).
+</ParamField>
+
+## Example Request
+
+```bash
+curl https://dev.chaterafrika.com/api/v1/apps/YOUR_APP_ID/ice-servers \
+  -H "Authorization: Bearer SDK_TOKEN"
+```
+
+## Response
+
+<ResponseField name="data.iceServers" type="array">
+  Array of ICE server entries (`{ urls, username?, credential? }`).
+</ResponseField>
+
+### Success (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "iceServers": [
+      { "urls": "stun:stun.l.google.com:19302" },
+      {
+        "urls": ["turn:turn.chaterafrika.com:3478"],
+        "username": "chatafrika",
+        "credential": "…"
+      }
+    ]
+  }
+}
+```
+
+## Using it directly
+
+```typescript
+const { data } = await fetch(
+  `${apiUrl}/apps/${appId}/ice-servers`,
+  { headers: { Authorization: `Bearer ${token}` } }
+).then((r) => r.json());
+
+const pc = new RTCPeerConnection({ iceServers: data.iceServers });
+```
+
+<Warning>
+  If no `turn:` entry is returned, calls will fail for participants behind strict NATs. Make
+  sure a TURN server is configured for your app.
+</Warning>
+
+<Card title="How calls work" icon="video" href="/guides/calls">
+  Signaling, ICE/TURN, and the call lifecycle.
+</Card>

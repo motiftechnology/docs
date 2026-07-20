@@ -14,24 +14,16 @@
         "tab": "Guides",
         "groups": [
           {
-            "group": "Getting Started",
+            "group": "Get Started",
             "pages": [
               "index",
               "quickstart",
-              "guides/architecture",
               "guides/authentication",
-              "guides/support-flow-full"
+              "guides/architecture"
             ]
           },
           {
-            "group": "Team & Members",
-            "pages": [
-              "guides/team-members/overview",
-              "guides/team-members/invitations"
-            ]
-          },
-          {
-            "group": "Core Features",
+            "group": "Chat",
             "pages": [
               "guides/conversations",
               "guides/messages",
@@ -41,40 +33,56 @@
             ]
           },
           {
-            "group": "Support & Routing",
+            "group": "Customer Support",
             "pages": [
+              "guides/support-flow-full",
               "guides/support-routing",
-              "guides/departments",
-              "guides/agents",
-              "guides/customers"
+              "guides/bots/overview",
+              "guides/bots/training"
             ]
           },
           {
-            "group": "AI Bot",
+            "group": "Voice & Video",
             "pages": [
-              "guides/bots/overview",
-              "guides/bots/configuration",
-              "guides/bots/analytics",
-              "guides/bots/faq"
+              "guides/calls"
+            ]
+          },
+          {
+            "group": "Team",
+            "pages": [
+              "guides/team-members/overview",
+              "guides/team-members/invitations"
             ]
           },
           {
             "group": "Integrations",
             "pages": [
-              "guides/webhooks",
-              "guides/sdk/overview",
-              "guides/sdk/authentication",
-              "guides/sdk/messaging",
-              "guides/sdk/realtime"
+              "sdk/widget",
+              "guides/webhooks"
             ]
-          },
+          }
+        ]
+      },
+      {
+        "tab": "SDK",
+        "groups": [
           {
-            "group": "Advanced",
+            "group": "JavaScript SDK",
             "pages": [
-              "guides/multi-tenancy",
-              "guides/security",
-              "guides/scalability",
-              "guides/troubleshooting"
+              "sdk/overview",
+              "sdk/installation",
+              "sdk/implementation",
+              "sdk/authentication",
+              "sdk/conversations",
+              "sdk/messaging",
+              "sdk/presence",
+              "sdk/typing",
+              "sdk/receipts",
+              "sdk/support",
+              "sdk/calls",
+              "sdk/inbox",
+              "sdk/widget",
+              "sdk/examples"
             ]
           }
         ]
@@ -83,129 +91,32 @@
         "tab": "API Reference",
         "groups": [
           {
-            "group": "Authentication",
+            "group": "Overview",
             "pages": [
-              "api-reference/auth/register",
-              "api-reference/auth/login",
-              "api-reference/auth/refresh",
-              "api-reference/auth/sdk-token"
+              "api-reference/introduction"
             ]
           },
           {
-            "group": "Tenants",
+            "group": "Provisioning",
             "pages": [
-              "api-reference/tenants/get",
-              "api-reference/tenants/update"
-            ]
-          },
-          {
-            "group": "Apps",
-            "pages": [
-              "api-reference/apps/create",
-              "api-reference/apps/list",
-              "api-reference/apps/get",
-              "api-reference/apps/update",
-              "api-reference/apps/delete",
-              "api-reference/apps/issue-token"
+              "api-reference/apps/issue-token",
+              "api-reference/support-sessions",
+              "api-reference/anonymous-session"
             ]
           },
           {
             "group": "Conversations",
             "pages": [
-              "api-reference/conversations/create",
               "api-reference/conversations/create-external",
               "api-reference/conversations/list-external",
-              "api-reference/conversations/get-external-messages",
-              "api-reference/conversations/list",
-              "api-reference/conversations/get",
-              "api-reference/conversations/add-member",
-              "api-reference/conversations/remove-member"
+              "api-reference/conversations/get-external-messages"
             ]
           },
           {
-            "group": "Messages",
+            "group": "Visitors & Calls",
             "pages": [
-              "api-reference/messages/list",
-              "api-reference/messages/get"
-            ]
-          },
-          {
-            "group": "Receipts",
-            "pages": [
-              "api-reference/receipts/list",
-              "api-reference/receipts/get"
-            ]
-          },
-          {
-            "group": "Departments",
-            "pages": [
-              "api-reference/departments/create",
-              "api-reference/departments/list",
-              "api-reference/departments/get",
-              "api-reference/departments/update",
-              "api-reference/departments/delete"
-            ]
-          },
-          {
-            "group": "Agents",
-            "pages": [
-              "api-reference/agents/create",
-              "api-reference/agents/list",
-              "api-reference/agents/get",
-              "api-reference/agents/update",
-              "api-reference/agents/availability"
-            ]
-          },
-          {
-            "group": "Support",
-            "pages": [
-              "api-reference/support/assign",
-              "api-reference/support/transfer",
-              "api-reference/support/inbox"
-            ]
-          },
-          {
-            "group": "Customers",
-            "pages": [
-              "api-reference/customers/list",
-              "api-reference/customers/get"
-            ]
-          },
-          {
-            "group": "Bots",
-            "pages": [
-              "api-reference/bots/config",
-              "api-reference/bots/handover"
-            ]
-          },
-          {
-            "group": "Bot Analytics",
-            "pages": [
-              "api-reference/bot-analytics/overview",
-              "api-reference/bot-analytics/events",
-              "api-reference/bot-analytics/feedback",
-              "api-reference/bot-analytics/submit-feedback"
-            ]
-          },
-          {
-            "group": "FAQs",
-            "pages": [
-              "api-reference/faqs/create",
-              "api-reference/faqs/list",
-              "api-reference/faqs/get",
-              "api-reference/faqs/update",
-              "api-reference/faqs/delete"
-            ]
-          },
-          {
-            "group": "Webhooks",
-            "pages": [
-              "api-reference/webhooks/create",
-              "api-reference/webhooks/list",
-              "api-reference/webhooks/get",
-              "api-reference/webhooks/update",
-              "api-reference/webhooks/delete",
-              "api-reference/webhooks/deliveries"
+              "api-reference/customers/update-me",
+              "api-reference/ice-servers"
             ]
           }
         ]
@@ -230,29 +141,6 @@
               "websocket/typing",
               "websocket/receipts",
               "websocket/signaling"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "SDK",
-        "groups": [
-          {
-            "group": "JavaScript SDK",
-            "pages": [
-              "sdk/overview",
-              "sdk/installation",
-              "sdk/implementation",
-              "sdk/authentication",
-              "sdk/conversations",
-              "sdk/inbox",
-              "sdk/messaging",
-              "sdk/presence",
-              "sdk/typing",
-              "sdk/receipts",
-              "sdk/support",
-              "sdk/widget",
-              "sdk/examples"
             ]
           }
         ]

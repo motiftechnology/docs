@@ -1,0 +1,115 @@
+---
+title: "Start a Support Session"
+api: "POST /api/v1/apps/:appId/support-sessions"
+description: "Mint an SDK token and open a support conversation in a single backend call."
+---
+
+## Overview
+
+Starts a **support session** in one request: it mints a short-lived SDK token **and** creates
+(or reuses) a bot-eligible `SUPPORT` conversation for the visitor. Your frontend then connects
+the SDK/widget with the returned `token` and `conversation_id`.
+
+Use this from **your backend** when you want to provision a widget without exposing your secret
+key to the browser. For a no-backend embed, use [Anonymous Session](/api-reference/anonymous-session)
+instead.
+
+<Note>
+  **Auth:** `X-Api-Key` (pk_…) + `X-Api-Secret` (sk_…) on production apps. A dashboard JWT is
+  also accepted for non-production (dev/staging) apps. Never expose the secret to the frontend.
+</Note>
+
+## Path Parameters
+
+<ParamField path="appId" type="string" required>
+  App ID (UUID).
+</ParamField>
+
+## Request Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-Api-Key` | Yes (or JWT) | App public key (pk_…) |
+| `X-Api-Secret` | Yes (or JWT) | App secret key (sk_…) |
+| `Content-Type` | Yes | `application/json` |
+
+## Request Body
+
+<ParamField body="external_user_id" type="string" required>
+  Your ID for the visitor. Reused across sessions to keep their history.
+</ParamField>
+<ParamField body="name" type="string">
+  Visitor display name.
+</ParamField>
+<ParamField body="email" type="string">
+  Visitor email (optional; can also be collected later).
+</ParamField>
+<ParamField body="avatar_url" type="string">
+  Visitor avatar URL.
+</ParamField>
+<ParamField body="title" type="string">
+  Optional title for the support conversation.
+</ParamField>
+
+## Example Request
+
+```bash
+curl -X POST https://dev.chaterafrika.com/api/v1/apps/YOUR_APP_ID/support-sessions \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: pk_xxxxx" \
+  -H "X-Api-Secret: sk_xxxxx" \
+  -d '{
+    "external_user_id": "visitor_123",
+    "name": "Jane Doe",
+    "email": "jane@example.com"
+  }'
+```
+
+## Response
+
+<ResponseField name="data.token" type="string">
+  SDK token for the frontend. Use with the SDK or widget.
+</ResponseField>
+<ResponseField name="data.conversation_id" type="string">
+  The support conversation to join.
+</ResponseField>
+<ResponseField name="data.user_id" type="string">
+  Same as `external_user_id`.
+</ResponseField>
+<ResponseField name="data.expires_in" type="number">
+  Token lifetime in seconds.
+</ResponseField>
+
+### Success (201)
+
+```json
+{
+  "success": true,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "conversation_id": "b2c8…",
+    "user_id": "visitor_123",
+    "expires_in": 86400
+  }
+}
+```
+
+## Using the response
+
+```typescript
+// Frontend — hand token + conversationId to the widget
+ChatAfrikaWidget.init({
+  wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+  token,
+  conversationId,
+});
+```
+
+<CardGroup cols={2}>
+  <Card title="Embed the widget" icon="message" href="/sdk/widget">
+    Drop-in support bubble.
+  </Card>
+  <Card title="Anonymous Session" icon="user-secret" href="/api-reference/anonymous-session">
+    No-backend embed with a public key.
+  </Card>
+</CardGroup>

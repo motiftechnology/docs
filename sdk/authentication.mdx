@@ -7,6 +7,12 @@ description: "Authentication flow for the ChaterAfrika SDK"
 
 The ChaterAfrika SDK uses token-based authentication. You need an SDK token to connect to the WebSocket server.
 
+<Note>
+  New to how tokens work? Read [Authentication & tokens](/guides/authentication) first — it
+  covers keys vs. tokens and the three ways your backend provisions a token. This page focuses
+  on wiring that token into the SDK.
+</Note>
+
 ## SDK token
 
 You need a single **SDK token** (about 15 minutes lifetime). It is used for both the WebSocket connection and, when you set `apiUrl`, for REST calls (list conversations, fetch messages) as Bearer.

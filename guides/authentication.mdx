@@ -1,272 +1,128 @@
 ---
-title: "Authentication"
-description: "Complete guide to authentication in ChaterAfrika"
+title: "Authentication & Tokens"
+description: "How your backend mints SDK tokens, and how anonymous embeds work — the one page to read on auth."
 ---
 
-## Overview
-
-ChaterAfrika uses JWT (JSON Web Tokens) for authentication. The platform supports multiple authentication flows depending on the use case.
-
-## Authentication Types
-
-### 1. User Authentication (Dashboard/Admin)
-
-For dashboard users (OWNER, ADMIN, AGENT, MEMBER roles):
-
-- **Access Token**: Short-lived (15 minutes), used for API requests
-- **Refresh Token**: Long-lived, used to obtain new access tokens
-- **Purpose**: Access to admin dashboard and management APIs
-
-### 2. SDK Authentication (Client Applications)
-
-For SDK users (customers using your application):
-
-- **SDK Token**: Short-lived (15 minutes), used for WebSocket connections
-- **Purpose**: Real-time messaging and customer interactions
-
-## User Registration
-
-Registration automatically creates both a user and a tenant.
-
-<ParamField body="email" type="string" required>
-  User email address (must be unique)
-</ParamField>
-
-<ParamField body="password" type="string" required>
-  User password (must meet security requirements)
-</ParamField>
-
-<ParamField body="company_name" type="string" required>
-  Company name (used to create tenant)
-</ParamField>
-
-**Endpoint:** `POST /api/v1/auth/register`
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "user": {
-      "id": "uuid",
-      "email": "user@example.com",
-      "role": "OWNER"
-    },
-    "tenant": {
-      "id": "uuid",
-      "name": "Company Name",
-      "slug": "company-name"
-    },
-    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
-
-<Note>
-The registered user automatically becomes the OWNER of the created tenant.
-</Note>
-
-## User Login
-
-<ParamField body="email" type="string" required>
-  User email address
-</ParamField>
-
-<ParamField body="password" type="string" required>
-  User password
-</ParamField>
-
-**Endpoint:** `POST /api/v1/auth/login`
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "user": {
-      "id": "uuid",
-      "email": "user@example.com",
-      "role": "OWNER",
-      "tenant_id": "uuid"
-    },
-    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
-
-## Token Refresh
-
-When the access token expires, use the refresh token to obtain a new access token.
-
-<ParamField body="refresh_token" type="string" required>
-  The refresh token from login/register
-</ParamField>
-
-**Endpoint:** `POST /api/v1/auth/refresh`
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
-
-## SDK Token Issuance (Backend Only)
-
-Your **backend** issues SDK tokens for your frontend. The frontend **never** sees App ID, public key, or secret key—only the token.
-
-**Endpoint:** `POST /api/v1/apps/:appId/tokens`
-
-**Auth:** Either **JWT** (`Authorization: Bearer <token>`) or **API key** (`X-Api-Key` + `X-Api-Secret`).
-
-**Body:** `{ "external_user_id": "user_123", "name": "Jane", "email": "jane@example.com" }`
-
-**Response:** `{ "token", "expires_in", "user_id" }`
+Everything a visitor's browser does — connecting the SDK, joining conversations, sending
+messages — is authorized by a short-lived **SDK token**. This page explains the credentials
+involved and the three ways to obtain a token.
 
 <Warning>
-**App ID, public key, and secret key are backend-only.** Store them on your backend. Your frontend receives only the **token** from your backend. Never expose keys to the frontend.
+  **Keys stay on your backend. Tokens go to the browser.** Your App ID, public key (`pk_…`),
+  and especially your secret key (`sk_…`) must never appear in frontend code. The frontend only
+  ever receives a **token**.
 </Warning>
 
-See [Issue SDK Token](/api-reference/apps/issue-token) for the full API reference.
+## Credentials
 
-### Backend integration (API key only)
+| Credential | Where it lives | What it's for |
+|-----------|----------------|---------------|
+| **App ID** | Backend | Identifies your app (UUID) |
+| **Public key** `pk_…` | Backend / allow-listed sites | Server auth, and anonymous browser sessions |
+| **Secret key** `sk_…` | **Backend only** | Server-to-server auth; never expose it |
+| **SDK token** | Frontend | Short-lived JWT the SDK/widget connects with |
+| **Dashboard JWT** | Your admin app | Owner/admin/agent access to management APIs |
 
-For **external chat** (e.g. order chat, appointment chat) you can use **API keys only**—no dashboard login:
+Create an app in the dashboard to get its App ID, public key, and secret key. You can rotate
+the secret at any time (`POST /apps/:id/rotate-secret`) — it's shown only once.
 
-1. **Create conversation:** `POST /api/v1/conversations/external` with `X-Api-Key` and `X-Api-Secret`. Body: `external_id`, `participants`. See [Create EXTERNAL (API Key)](/api-reference/conversations/create-external).
-2. **Issue SDK token:** `POST /api/v1/apps/:appId/tokens` with the same keys and `external_user_id` matching a participant. See [Issue SDK Token](/api-reference/apps/issue-token).
+## Three ways to get a token
 
-Return `{ token, conversation_id }` to your frontend; the SDK uses the token and joins the conversation.
+<CardGroup cols={3}>
+  <Card title="Mint a token" icon="key" href="/api-reference/apps/issue-token">
+    Backend mints a token for a known user. Most flexible.
+  </Card>
+  <Card title="Support session" icon="headset" href="/api-reference/support-sessions">
+    Backend mints a token **and** opens a support conversation in one call.
+  </Card>
+  <Card title="Anonymous session" icon="user-secret" href="/api-reference/anonymous-session">
+    Browser self-provisions with just a public key. No backend.
+  </Card>
+</CardGroup>
 
-## Using Access Tokens
+### 1. Mint a token (server-to-server)
 
-Include the access token in the `Authorization` header for all API requests:
+Your backend calls `POST /api/v1/apps/:appId/tokens` with either your API keys or a dashboard
+JWT, and returns the token to your frontend.
 
 ```bash
-curl https://api.chaterafrika.com/api/v1/conversations \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+curl -X POST https://dev.chaterafrika.com/api/v1/apps/YOUR_APP_ID/tokens \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: pk_xxxxx" \
+  -H "X-Api-Secret: sk_xxxxx" \
+  -d '{ "external_user_id": "user_123", "name": "Jane", "email": "jane@example.com" }'
+# → { "data": { "token": "…", "expires_in": 86400, "user_id": "user_123" } }
 ```
 
-## Using SDK Tokens
+Use this when you already have conversations (e.g. an [external conversation](/api-reference/conversations/create-external)
+for an order or appointment chat) and just need to authorize the current user. Full reference:
+[Issue SDK Token](/api-reference/apps/issue-token).
 
-Your **frontend** receives the token from **your backend** (which calls `POST /apps/:id/tokens`). Use it with the SDK or WebSocket—never use keys in the frontend.
+### 2. Start a support session (one call)
+
+For a support widget, `POST /api/v1/apps/:appId/support-sessions` mints the token **and**
+creates the support conversation together, returning both `token` and `conversation_id`. See
+[Start a Support Session](/api-reference/support-sessions).
+
+### 3. Anonymous session (no backend)
+
+A static site can provision entirely in the browser using only the **public key**:
+`POST /api/v1/sdk/anonymous-session` with `X-Api-Key: pk_…`. The request's `Origin` must be in
+the app's **allowed origins** (secure by default — empty means disabled). See
+[Open an Anonymous Session](/api-reference/anonymous-session).
+
+## Using a token
+
+Once your frontend has a token, hand it to the SDK or widget — it manages the WebSocket
+connection and auth for you:
 
 ```typescript
-// Token from your backend
-const client = new ChatAfrika({
-  wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
-  token
-});
+import { ChatAfrika } from '@chaterafrikang/sdk';
 
+const client = new ChatAfrika({ wsUrl: 'wss://ws.dev.chaterafrika.com/ws', token });
 await client.connect();
 ```
 
-Or manually with WebSocket (browsers use Sec-WebSocket-Protocol):
+Connecting to the WebSocket directly instead? See [WebSocket Authentication](/websocket/authentication).
 
-```javascript
-// Token from your backend
-const ws = new WebSocket('wss://ws.dev.chaterafrika.com/ws', [token]);
+## Token lifetime & refresh
+
+SDK tokens are short-lived. When you issue a fresh token (e.g. on page load), update the client
+without tearing down your app state:
+
+```typescript
+client.updateToken(newToken); // then reconnect if needed
 ```
 
-## Token Structure
+## Dashboard authentication
 
-### Access Token Payload
+Your **own admin app** (not the visitor-facing frontend) authenticates dashboard users with a
+JWT via `POST /api/v1/auth/login`, and refreshes it via `POST /api/v1/auth/refresh`. These
+tokens carry a `role` (OWNER, ADMIN, AGENT, MEMBER) and are used for management APIs like bot
+config, FAQs, the support inbox, and agent tools.
 
-```json
-{
-  "sub": "user-id",
-  "email": "user@example.com",
-  "tenant_id": "tenant-id",
-  "role": "OWNER",
-  "iat": 1234567890,
-  "exp": 1234568790
-}
-```
-
-### SDK Token Payload
-
-```json
-{
-  "sub": "external_user_id",
-  "app_id": "app-uuid",
-  "type": "sdk_user",
-  "iat": 1234567890,
-  "exp": 1234568790
-}
-```
-
-## Security Best Practices
+## Security checklist
 
 <CardGroup cols={2}>
-  <Card title="Token Storage" icon="lock">
-    Store tokens securely. Never expose tokens in client-side code or logs.
+  <Card title="Secret stays server-side" icon="lock">
+    Never ship `sk_…` (or App ID / public key for server auth) to the browser.
   </Card>
-  <Card title="Token Refresh" icon="refresh">
-    Implement automatic token refresh before expiration.
+  <Card title="Allow-list origins" icon="shield">
+    For anonymous embeds, add only the exact sites you trust to the app's allowed origins.
   </Card>
-  <Card title="HTTPS Only" icon="shield">
-    Always use HTTPS/WSS in production.
+  <Card title="HTTPS / WSS only" icon="wifi">
+    Always use TLS in production for both the API and the WebSocket.
   </Card>
-  <Card title="Token Rotation" icon="key">
-    Rotate app secrets regularly for security.
+  <Card title="Rotate secrets" icon="rotate">
+    Rotate the app secret if it may have leaked (`POST /apps/:id/rotate-secret`).
   </Card>
 </CardGroup>
 
-## Error Handling
-
-### Invalid Credentials
-
-```json
-{
-  "success": false,
-  "message": "Invalid email or password",
-  "statusCode": 401
-}
-```
-
-### Expired Token
-
-```json
-{
-  "success": false,
-  "message": "Token expired",
-  "statusCode": 401
-}
-```
-
-### Invalid Token
-
-```json
-{
-  "success": false,
-  "message": "Invalid token",
-  "statusCode": 401
-}
-```
-
-## Next Steps
-
 <CardGroup cols={2}>
-  <Card title="API Reference" icon="terminal" href="/api-reference/auth/register">
-    View all authentication endpoints
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Put a token to work end-to-end.
   </Card>
-  <Card title="SDK Auth" icon="code" href="/sdk/authentication">
-    SDK authentication
-  </Card>
-  <Card title="Issue Token" icon="key" href="/api-reference/apps/issue-token">
-    POST /apps/:id/tokens
-  </Card>
-  <Card title="WebSocket Auth" icon="bolt" href="/websocket/authentication">
-    WebSocket authentication
-  </Card>
-  <Card title="Security" icon="shield" href="/guides/security">
-    Security best practices
+  <Card title="Issue SDK Token" icon="key" href="/api-reference/apps/issue-token">
+    Full endpoint reference.
   </Card>
 </CardGroup>
-

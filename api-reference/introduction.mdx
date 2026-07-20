@@ -1,43 +1,82 @@
 ---
-title: 'Introduction'
-description: 'API reference for ChaterAfrika REST endpoints'
+title: "API Reference"
+description: "The REST endpoints you call when integrating ChaterAfrika — provisioning, history, and calls."
 ---
 
-## Sending Messages
+This reference covers the REST endpoints an **integrator** uses. Most of your real-time work —
+sending messages, typing, presence, receipts, call signaling — happens over the
+[WebSocket](/websocket/overview) (usually via the [SDK](/sdk/overview)). REST is for
+**provisioning tokens, reading history, and fetching config**.
 
 <Warning>
-**Messages are sent exclusively over WebSockets.**
-
-This guarantees ordering, real-time delivery, typing indicators, presence, and receipts.
-
-Use the JavaScript SDK to send messages via WebSocket: `client.conversations.get(conversationId).sendMessage(content)`
-
-REST APIs are used for history, analytics, and internal automation only.
+  **Messages are sent over the WebSocket, not REST.** Use
+  `client.conversations.get(id).sendMessage(...)`. REST endpoints are for history and setup.
 </Warning>
 
-## Welcome
+## Base URL
 
-This API reference documents the REST API endpoints available in ChaterAfrika. The REST API is used for:
+```
+https://dev.chaterafrika.com/api/v1
+```
 
-- **Message History** - Retrieving past messages and conversations
-- **Analytics** - Accessing metrics, reports, and bot analytics
-- **Internal Automation** - Managing resources, configurations, and administrative tasks
-- **Data Management** - Creating, updating, and querying conversations, users, and other entities
-
-For sending messages in real-time, use the [WebSocket connection](/quickstart#websocket-connection) or the [JavaScript SDK](/quickstart#javascript-sdk).
+All endpoints are under the `/api/v1` prefix. Use your production host in production.
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens. Include your access token in the Authorization header:
+Depending on the endpoint, you authenticate with one of:
 
-```bash
-Authorization: Bearer YOUR_ACCESS_TOKEN
+| Method | Header(s) | Used by |
+|--------|-----------|---------|
+| **API key** | `X-Api-Key: pk_…` + `X-Api-Secret: sk_…` | Server-to-server (provisioning) |
+| **Public key** | `X-Api-Key: pk_…` (+ allow-listed `Origin`) | Anonymous browser sessions |
+| **SDK token** | `Authorization: Bearer <sdk_token>` | The visitor's frontend |
+
+See [Authentication & tokens](/guides/authentication) for the full picture. Keys stay on your
+backend; the browser only ever gets a token.
+
+## Response format
+
+Every response is wrapped in a consistent envelope:
+
+```json
+{
+  "success": true,
+  "message": "…",
+  "data": { }
+}
 ```
 
-<Card
-  title="OpenAPI Specification"
-  icon="file-code"
-  href="/api-reference/openapi.json"
->
-  View the complete OpenAPI specification
-</Card>
+Errors use the same shape with `success: false` and an HTTP status code:
+
+```json
+{
+  "success": false,
+  "message": "Invalid API credentials",
+  "statusCode": 401
+}
+```
+
+| Status | Meaning |
+|--------|---------|
+| `400` | Validation error |
+| `401` | Missing/invalid credentials |
+| `403` | Not allowed (disabled app, origin not allow-listed, wrong role) |
+| `404` | Resource not found |
+| `429` | Rate limited |
+
+## Where to start
+
+<CardGroup cols={2}>
+  <Card title="Issue SDK Token" icon="key" href="/api-reference/apps/issue-token">
+    Mint a token for a known user.
+  </Card>
+  <Card title="Start a Support Session" icon="headset" href="/api-reference/support-sessions">
+    Token + support conversation in one call.
+  </Card>
+  <Card title="Open an Anonymous Session" icon="user-secret" href="/api-reference/anonymous-session">
+    Browser-only provisioning with a public key.
+  </Card>
+  <Card title="Get ICE Servers" icon="server" href="/api-reference/ice-servers">
+    STUN/TURN config for voice/video.
+  </Card>
+</CardGroup>

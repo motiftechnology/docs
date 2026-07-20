@@ -1,0 +1,101 @@
+---
+title: "Open an Anonymous Session"
+api: "POST /api/v1/sdk/anonymous-session"
+description: "Provision a support session from the browser with only a public key — no backend."
+---
+
+## Overview
+
+Opens a support session **directly from the browser** using only your app's **public key** —
+no backend required. The endpoint validates the request `Origin` against your app's allow-list,
+mints an SDK token, and creates a `SUPPORT` conversation. This powers the widget's **anonymous
+mode** for static sites.
+
+<Note>
+  **Auth:** `X-Api-Key: pk_…` (public key only). The request `Origin` must be listed in the
+  app's **allowed origins** (dashboard → app settings). No secret key is used or needed.
+</Note>
+
+<Warning>
+  Anonymous embedding is **disabled by default**. Add each site's origin (e.g.
+  `https://www.example.com`) to the app's allowed origins first, or this endpoint returns `403`.
+</Warning>
+
+## Request Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-Api-Key` | Yes | App public key (pk_…) |
+| `Origin` | Yes | Set automatically by the browser; must be allow-listed |
+| `Content-Type` | Yes | `application/json` |
+
+## Request Body
+
+<ParamField body="name" type="string">
+  Visitor display name (optional).
+</ParamField>
+<ParamField body="email" type="string">
+  Visitor email (optional; can be collected later via [Update Visitor](/api-reference/customers/update-me)).
+</ParamField>
+
+## Example Request
+
+```bash
+curl -X POST https://dev.chaterafrika.com/api/v1/sdk/anonymous-session \
+  -H "Content-Type: application/json" \
+  -H "Origin: https://www.example.com" \
+  -H "X-Api-Key: pk_xxxxx" \
+  -d '{ "name": "Guest" }'
+```
+
+## Response
+
+<ResponseField name="data.token" type="string">
+  SDK token for this anonymous visitor.
+</ResponseField>
+<ResponseField name="data.conversation_id" type="string">
+  The support conversation to join.
+</ResponseField>
+<ResponseField name="data.user_id" type="string">
+  Generated anonymous visitor ID.
+</ResponseField>
+<ResponseField name="data.expires_in" type="number">
+  Token lifetime in seconds.
+</ResponseField>
+
+### Success (201)
+
+```json
+{
+  "success": true,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "conversation_id": "b2c8…",
+    "user_id": "anon_9f3a…",
+    "expires_in": 86400
+  }
+}
+```
+
+## Notes
+
+- **Rate limited** per IP to prevent abuse.
+- The widget calls this for you when you pass only a `publicKey` — see
+  [Embed the widget](/sdk/widget). You rarely call it directly.
+
+## Error Responses
+
+| Status | Meaning |
+|--------|---------|
+| `403 Forbidden` | Origin not in the app's allowed origins, or anonymous embedding disabled |
+| `401 Unauthorized` | Invalid public key |
+| `429 Too Many Requests` | Rate limit exceeded |
+
+<CardGroup cols={2}>
+  <Card title="Embed the widget" icon="message" href="/sdk/widget">
+    Anonymous mode with a public key.
+  </Card>
+  <Card title="Server-side session" icon="server" href="/api-reference/support-sessions">
+    Provision from your backend instead.
+  </Card>
+</CardGroup>

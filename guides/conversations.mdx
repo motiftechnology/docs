@@ -166,7 +166,7 @@ const conversationId = data.id;
 
 ### Create EXTERNAL with JWT (dashboard)
 
-If you prefer to use dashboard JWT instead of API keys, use `POST /conversations` with `Authorization: Bearer <access_token>` and body `{ type: "external", external_id, participants }`. See [Create Conversation](/api-reference/conversations/create).
+If you prefer to use dashboard JWT instead of API keys, use `POST /conversations` with `Authorization: Bearer <access_token>` and body `{ type: "external", external_id, participants }`. See [Create Conversation](/api-reference/conversations/create-external).
 
 ## Managing Conversations
 
@@ -287,10 +287,10 @@ When you join a conversation via WebSocket, you'll receive:
   <Card title="Messages" icon="message" href="/guides/messages">
     Learn about sending and receiving messages
   </Card>
-  <Card title="API Reference" icon="terminal" href="/api-reference/conversations/create">
+  <Card title="API Reference" icon="terminal" href="/api-reference/conversations/create-external">
     View all conversation endpoints (including EXTERNAL)
   </Card>
-  <Card title="External Chat" icon="comments" href="/api-reference/conversations/create#external-conversation">
+  <Card title="External Chat" icon="comments" href="/api-reference/conversations/create-external">
     Create EXTERNAL conversations (orders, appointments, SDK)
   </Card>
   <Card title="Issue SDK Token" icon="key" href="/api-reference/apps/issue-token">

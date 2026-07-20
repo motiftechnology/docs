@@ -1,0 +1,150 @@
+---
+title: "Voice & Video Calls"
+description: "Start and manage WebRTC audio/video calls from a conversation with the SDK."
+---
+
+The SDK adds **WebRTC voice and video** to any conversation. It handles signaling (over the
+same WebSocket), peer connections, and fetching ICE servers (STUN/TURN) — you wire up the
+media streams and buttons.
+
+Calls live on the **conversation** object. Get a conversation, then call its call methods and
+listen for its call events.
+
+<Note>
+  For calls to connect reliably across networks, your app needs a **TURN server**. The SDK
+  fetches ICE servers (STUN/TURN) from your app's config — make sure `appId` and `apiUrl` are
+  set on the client so it can call [`GET /apps/:id/ice-servers`](/api-reference/ice-servers).
+</Note>
+
+## Prerequisites
+
+```typescript
+import { ChatAfrika } from '@chaterafrikang/sdk';
+
+const client = new ChatAfrika({
+  wsUrl: 'wss://ws.dev.chaterafrika.com/ws',
+  apiUrl: 'https://dev.chaterafrika.com/api/v1', // needed to fetch ICE servers
+  appId: 'YOUR_APP_ID',                          // needed to fetch ICE servers
+  token,
+});
+await client.connect();
+
+const conversation = client.conversations.get('conversation-id');
+await client.conversations.join('conversation-id');
+```
+
+## Start a call
+
+```typescript
+// 'video' (default) or 'voice'
+conversation.startCall('video');
+
+// Show your own camera once the local stream is ready
+conversation.on('call_connected', () => {
+  const localStream = conversation.getLocalStream();
+  if (localStream) localVideoEl.srcObject = localStream;
+});
+```
+
+The other participants receive a `call_invite` event.
+
+## Receive & answer a call
+
+```typescript
+conversation.on('call_invite', ({ call_type, caller_id, caller_name }) => {
+  // Show a ringing UI, then accept or reject:
+  acceptButton.onclick = () => conversation.acceptCall();
+  rejectButton.onclick = () => conversation.rejectCall('busy');
+});
+```
+
+Use `joinCall(callType)` instead of `acceptCall()` to join a call that's already in progress
+(for example, a group call you weren't the original invitee of).
+
+## Render remote media
+
+```typescript
+conversation.on('call_connected', ({ user_id }) => {
+  const remoteStream = conversation.getRemoteStream(user_id);
+  if (remoteStream) attachStreamToVideoElement(user_id, remoteStream);
+});
+
+// All current remote streams (e.g. group calls)
+const streams = conversation.getAllRemoteStreams(); // Map<userId, MediaStream>
+```
+
+## In-call controls
+
+```typescript
+conversation.setMuted(true);          // mute your mic
+conversation.setMuted(false);         // unmute
+conversation.setVideoEnabled(false);  // turn your camera off
+conversation.setVideoEnabled(true);   // turn it back on
+```
+
+Peers are notified via `peer_mute` / `peer_unmute` / `peer_video_off` / `peer_video_on`.
+
+## End a call
+
+```typescript
+conversation.endCall();               // hang up for everyone you're connected to
+// or decline an incoming invite:
+conversation.rejectCall('declined');
+```
+
+## Call events
+
+Listen on the conversation:
+
+| Event | Fires when |
+|-------|------------|
+| `call_invite` | Someone starts a call in this conversation (`{ call_type, caller_id, caller_name }`) |
+| `call_connected` | A peer connection is established (`{ user_id }`); local/remote streams are available |
+| `call_join` | A participant joins an in-progress call |
+| `call_accept` | Your invite was accepted |
+| `call_reject` | Your invite was rejected (`{ reason }`) |
+| `call_hangup` | The call was ended (`{ ended_by, reason }`) |
+| `call_timeout` | The invite rang out with no answer |
+| `peer_left` | A participant left the call |
+| `peer_mute` / `peer_unmute` | A participant toggled their mic |
+| `peer_video_off` / `peer_video_on` | A participant toggled their camera |
+| `call_error` | A signaling or media error occurred (`{ code, message }`) |
+
+## Call quality
+
+After a call ends, the SDK can report quality metrics (packet loss, jitter, RTT) so they show
+up in your dashboard analytics. You can also read them live:
+
+```typescript
+const stats = await conversation.getCallStats();
+```
+
+Metrics are submitted to [`POST /conversations/:id/call-quality`](/guides/calls#call-quality).
+
+## Full flow
+
+<Steps>
+  <Step title="Set up media permissions">
+    The SDK requests camera/mic access when a call starts. Handle the browser permission
+    prompt in your UI.
+  </Step>
+  <Step title="Caller">
+    `conversation.startCall('video')` → listen for `call_accept` / `call_connected` → render
+    streams.
+  </Step>
+  <Step title="Callee">
+    `call_invite` → `conversation.acceptCall()` → `call_connected` → render streams.
+  </Step>
+  <Step title="Hang up">
+    Either side calls `conversation.endCall()`; both receive `call_hangup`.
+  </Step>
+</Steps>
+
+<CardGroup cols={2}>
+  <Card title="How calls work" icon="video" href="/guides/calls">
+    WebRTC, ICE/TURN, and the end-to-end call flow.
+  </Card>
+  <Card title="Call signaling protocol" icon="bolt" href="/websocket/signaling">
+    The raw WebSocket signaling messages, if you're not using the SDK.
+  </Card>
+</CardGroup>

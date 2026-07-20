@@ -1,0 +1,129 @@
+---
+title: "Training the Bot"
+description: "Teach the AI support bot with FAQs and knowledge documents, and tune when it answers."
+---
+
+The support bot answers customer questions from **two sources you control**:
+
+1. **FAQs** — question/answer pairs you curate.
+2. **Knowledge documents** — PDFs (product guides, policies, help articles) whose text the bot
+   uses as context.
+
+When a customer sends the first message in a [support conversation](/guides/support-flow-full),
+the bot finds the most relevant FAQ/knowledge, generates a reply, and either answers or
+escalates to a human based on your confidence settings.
+
+<Note>
+  Bot configuration and training are **dashboard-owner/admin** actions. The endpoints below use
+  a dashboard JWT. Most teams manage this in the dashboard UI; the API is here for automation.
+</Note>
+
+## FAQs
+
+FAQs are the bot's primary knowledge. Keep questions phrased the way customers actually ask.
+
+<CodeGroup>
+```bash Create an FAQ
+curl -X POST https://dev.chaterafrika.com/api/v1/apps/{appId}/faqs \
+  -H "Authorization: Bearer DASHBOARD_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "How do I reset my password?",
+    "answer": "Go to Settings → Security → Reset password and follow the email link."
+  }'
+```
+
+```bash List FAQs
+curl https://dev.chaterafrika.com/api/v1/apps/{appId}/faqs \
+  -H "Authorization: Bearer DASHBOARD_TOKEN"
+```
+
+```bash Update / delete
+curl -X PATCH https://dev.chaterafrika.com/api/v1/apps/{appId}/faqs/{id} \
+  -H "Authorization: Bearer DASHBOARD_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "answer": "Updated answer text." }'
+
+curl -X DELETE https://dev.chaterafrika.com/api/v1/apps/{appId}/faqs/{id} \
+  -H "Authorization: Bearer DASHBOARD_TOKEN"
+```
+</CodeGroup>
+
+<Tip>
+  Write one FAQ per distinct question. Several short, specific FAQs beat one long catch-all —
+  they match customer phrasing more reliably.
+</Tip>
+
+## Knowledge documents (PDF)
+
+Upload PDFs to give the bot broader context than FAQs alone. The platform extracts the text
+and uses it when generating replies.
+
+```bash
+curl -X POST https://dev.chaterafrika.com/api/v1/apps/{appId}/knowledge/documents \
+  -H "Authorization: Bearer DASHBOARD_TOKEN" \
+  -F "file=@product-guide.pdf" \
+  -F "label=Product guide"
+```
+
+- **Format:** PDF, up to **15 MB** per file.
+- **Manage:** `GET /apps/{appId}/knowledge/documents` to list, `DELETE …/{documentId}` to remove.
+
+## Company context
+
+The bot also grounds answers in your **company name, website, and description** (set on the
+app). This keeps replies on-brand and lets the bot answer basic "who are you" questions without
+an explicit FAQ.
+
+## Tuning when the bot answers
+
+Configure the bot per app (optionally per department):
+
+```bash
+curl -X PUT https://dev.chaterafrika.com/api/v1/apps/{appId}/bots/config \
+  -H "Authorization: Bearer DASHBOARD_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "is_enabled": true,
+    "min_confidence": 0.6,
+    "auto_escalate": true,
+    "escalate_message": "Let me connect you with a teammate.",
+    "department_id": null
+  }'
+```
+
+<ParamField body="is_enabled" type="boolean">
+  Turn the bot on or off for this app/department.
+</ParamField>
+<ParamField body="min_confidence" type="number">
+  0–1. If the bot's confidence is below this, it won't answer directly.
+</ParamField>
+<ParamField body="auto_escalate" type="boolean">
+  When confidence is low, automatically hand off to a human agent.
+</ParamField>
+<ParamField body="escalate_message" type="string">
+  Message shown to the customer when escalating.
+</ParamField>
+<ParamField body="department_id" type="string">
+  Scope this config to a specific department (optional).
+</ParamField>
+
+## Handover
+
+A bot conversation can move to a human at any time, and back:
+
+- **Auto-escalation** — triggered by low confidence (above).
+- **Agent takeover** — an agent claims the conversation (`POST /support/:conversationId/handover/takeover`).
+- **Resume bot** — an owner/admin hands it back (`POST /support/:conversationId/handover/bot-resume`).
+
+Clients are notified in real time via the `support` event (`bot_takeover` / `bot_released`) —
+see [Support (SDK)](/sdk/support).
+
+<CardGroup cols={2}>
+  <Card title="AI bot overview" icon="robot" href="/guides/bots/overview">
+    What the bot does and how it fits the support flow.
+  </Card>
+  <Card title="Support flow" icon="headset" href="/guides/support-flow-full">
+    End-to-end: widget → bot → routing → agent.
+  </Card>
+</CardGroup>

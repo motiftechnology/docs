@@ -1,0 +1,96 @@
+---
+title: "Voice & Video Calls"
+description: "How WebRTC audio/video calls work in ChaterAfrika — signaling, ICE/TURN, and quality."
+---
+
+ChaterAfrika adds **peer-to-peer voice and video** to any conversation using **WebRTC**. The
+platform brokers the signaling; media flows directly between participants (relayed through a
+TURN server when a direct path isn't possible).
+
+<Note>
+  The fastest way to add calls is the SDK — see [Voice & Video Calls (SDK)](/sdk/calls). This
+  page explains what happens under the hood.
+</Note>
+
+## The pieces
+
+| Piece | Role |
+|-------|------|
+| **Signaling** | Call setup messages (invite, accept, SDP offer/answer, ICE candidates) travel over the same WebSocket used for chat. The realtime service routes them between participants. |
+| **ICE servers (STUN/TURN)** | WebRTC uses STUN to discover public addresses and **TURN** to relay media when peers can't connect directly (strict NAT/firewalls). Fetched from [`GET /apps/:id/ice-servers`](/api-reference/ice-servers). |
+| **Media** | Audio/video streams are peer-to-peer (or via TURN). They never pass through the chat backend. |
+
+<Warning>
+  **A TURN server is required for reliable calls.** STUN alone fails for many users behind
+  strict NATs. Configure TURN for your app so `GET /apps/:id/ice-servers` returns a `turn:`
+  entry with credentials.
+</Warning>
+
+## Call lifecycle
+
+<Steps>
+  <Step title="Invite">
+    The caller starts a call. Everyone else in the conversation receives a `call_invite` with
+    the call type (`voice` or `video`) and caller info.
+  </Step>
+  <Step title="Accept / reject">
+    A callee accepts or rejects. Rejecting ends the invite for that participant.
+  </Step>
+  <Step title="Negotiate">
+    Accepting participants exchange **SDP offers/answers** and **ICE candidates** over the
+    WebSocket until a peer connection is established (`call_connected`).
+  </Step>
+  <Step title="In call">
+    Media flows peer-to-peer. Mute/unmute and camera on/off are broadcast to peers.
+  </Step>
+  <Step title="Hang up">
+    Any participant can end the call; the rest receive `call_hangup`.
+  </Step>
+</Steps>
+
+## Call types
+
+- **`voice`** — audio only.
+- **`video`** — audio + video.
+
+Both one-to-one and small group calls are supported (a peer connection per participant).
+
+## Signaling messages
+
+Call signaling is a set of WebSocket message types (`call_invite`, `call_accept`, `call_join`,
+`call_offer`, `call_answer`, `call_ice_candidate`, `call_reject`, `call_hangup`, `call_mute`,
+`video_off`, …). The SDK sends and handles these for you. If you're implementing WebRTC
+directly, see the [Call Signaling protocol](/websocket/signaling) reference.
+
+## Active call
+
+You can check whether a conversation currently has a call in progress:
+
+```bash
+curl https://dev.chaterafrika.com/api/v1/conversations/{conversationId}/active-call \
+  -H "Authorization: Bearer SDK_OR_DASHBOARD_TOKEN"
+```
+
+## Call quality
+
+After a call, clients can submit quality metrics (duration, packet loss, jitter, round-trip
+time) which surface in your dashboard:
+
+```bash
+curl -X POST https://dev.chaterafrika.com/api/v1/conversations/{conversationId}/call-quality \
+  -H "Authorization: Bearer SDK_OR_DASHBOARD_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "duration_seconds": 142, "packets_lost_in": 3, "jitter_ms": 12, "rtt_ms": 48 }'
+```
+
+The SDK submits these automatically when a call ends (and exposes them via
+`conversation.getCallStats()`).
+
+<CardGroup cols={2}>
+  <Card title="Add calls with the SDK" icon="video" href="/sdk/calls">
+    startCall, accept, mute, streams, and events.
+  </Card>
+  <Card title="ICE servers endpoint" icon="server" href="/api-reference/ice-servers">
+    Fetch STUN/TURN config for WebRTC.
+  </Card>
+</CardGroup>

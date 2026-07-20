@@ -17,7 +17,7 @@ Create an **EXTERNAL** conversation using **API keys only**—no dashboard login
 - You want to **create conversations** without using dashboard login (JWT).
 - You already have an **App** and its **public key** + **secret key** from the dashboard.
 
-For **dashboard** flows (internal users, DIRECT/GROUP/SUPPORT), use [Create Conversation](/api-reference/conversations/create) with JWT instead.
+For **dashboard** flows (internal users, DIRECT/GROUP/SUPPORT), use [Create Conversation](/api-reference/conversations/create-external) with JWT instead.
 
 ## Request Headers
 
@@ -59,7 +59,7 @@ curl -X POST https://dev.chaterafrika.com/api/v1/conversations/external \
 
 ## Response
 
-Same shape as [Create Conversation](/api-reference/conversations/create): `success`, `message`, `data` with `id`, `type`, `external_id`, etc.
+Same shape as [Create Conversation](/api-reference/conversations/create-external): `success`, `message`, `data` with `id`, `type`, `external_id`, etc.
 
 ### Success (201)
 
@@ -110,7 +110,7 @@ If a conversation with the same `external_id` already exists, the API returns th
   <Card title="Conversations Guide" icon="book" href="/guides/conversations">
     EXTERNAL conversations overview
   </Card>
-  <Card title="Create Conversation (JWT)" icon="lock" href="/api-reference/conversations/create">
+  <Card title="Create Conversation (JWT)" icon="lock" href="/api-reference/conversations/create-external">
     Dashboard / other types
   </Card>
 </CardGroup>
